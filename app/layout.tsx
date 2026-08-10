@@ -1,3 +1,4 @@
+'use client';
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="google-site-verification" content="H_21Z6C-ABm2qVfEvBhTE6kVuJZaiS8i_4m5ZrxU4J8" />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
       <body className="bg-term-bg text-term-text antialiased">
