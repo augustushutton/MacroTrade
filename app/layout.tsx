@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { ScenarioProvider } from "@/lib/scenario-context";
 import TopNav from "@/components/TopNav";
 import { NAV } from "@/lib/nav";
+import { Analytics } from '@vercel/analytics/react';
 
 // Every other route (app/pnl, app/sensitivity, ...) declares an explicit,
 // descriptive title via its own layout.tsx, sourced from lib/nav.ts. The
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
           </ScenarioProvider>
         </ThemeProvider>
+<Analytics />
       </body>
     </html>
   );
