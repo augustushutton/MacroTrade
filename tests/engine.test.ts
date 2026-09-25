@@ -3,8 +3,8 @@ import { SECOND_ROUND, DERIVED_COMMODITY, DERIVED_EQUITY, RATE_BETAS, SPREAD_BET
 import { ASSET_BY_ID, ASSETS } from "@/lib/assets";
 import { VAR_BY_ID, baselineState, collinearityShrink, crossTierShrink, themeShrink } from "@/lib/vars";
 import { saturateMultiplier } from "@/lib/regimes";
-import { runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
-import { PATHS, responseKernel, responseWeight, samplePath } from "@/lib/paths";
+import { drawdownPath, factorAttribution, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
+import { PATHS, responseKernel, responseWeight, responseWeightAt, samplePath } from "@/lib/paths";
 import { PORTFOLIOS, portfolioWeights } from "@/lib/portfolios";
 import { PRESETS, presetState } from "@/lib/scenarios";
 import { decodeSnapshot, encodeSnapshot, fromDelta, toDelta } from "@/lib/storage";
@@ -478,5 +478,123 @@ describe("compounding", () => {
     };
     const r = runScenario({ ...base, state: st });
     for (const a of Object.values(r.assets)) expect(a.pricePct).toBeGreaterThan(-100);
+  });
+});
+
+describe("sub-horizon evaluation (responseWeightAt / drawdownPath)", () => {
+  const CHANNELS = ["rate", "spread", "multiple", "earnings", "riskPremium", "price"] as const;
+
+  it("matches responseWeight exactly when evaluated at the terminal horizon", () => {
+    for (const p of PATHS) {
+      for (const c of CHANNELS) {
+        const a = responseWeight(c, p.id, 12, 8);
+        const b = responseWeightAt(c, p.id, 12, 8, 12);
+        expect(b).toBeCloseTo(a, 9);
+      }
+    }
+  });
+
+  it("runScenario(input, input.horizon) reproduces runScenario(input) exactly", () => {
+    const st = { ...base.state, gdpGrowth: -1.8, vix: 27, igSpread: 150 };
+    const input = { ...base, state: st, path: "scurve" as const };
+    const a = runScenario(input);
+    const b = runScenario(input, input.horizon);
+    for (const id of Object.keys(a.assets)) {
+      expect(b.assets[id].pricePct).toBeCloseTo(a.assets[id].pricePct, 9);
+    }
+  });
+
+  it("returns zero weight for a point before any shock has had time to transmit", () => {
+    // At month 0 nothing delivered can have transmitted yet, for any channel
+    // or path shape — responseKernel's own zero-at-zero guard should carry
+    // straight through.
+    for (const c of CHANNELS) expect(responseWeightAt(c, "immediate", 12, 8, 0)).toBe(0);
+  });
+
+  it("drawdownPath starts at (0, 0) and ends at the scenario's own horizon", () => {
+    const st = { ...base.state, gdpGrowth: -2.0, vix: 30, igSpread: 170 };
+    const dd = drawdownPath({ ...base, state: st, horizon: 12 }, "p6040", 12);
+    expect(dd.path[0]).toEqual({ month: 0, pct: 0 });
+    expect(dd.path[dd.path.length - 1].month).toBeCloseTo(12, 6);
+  });
+
+  it("finds an interior trough worse than the terminal point on an overshooting path", () => {
+    // "Mean Reverting" delivers 1.35x the terminal shock near 35% of the
+    // horizon before settling back to 0.55x (see lib/paths.ts) — a scenario
+    // that only loses money should therefore bottom out mid-path, not at the
+    // horizon, and the terminal point should recover part of that trough.
+    const st = { ...base.state, vix: 40, igSpread: 200, hyBBSpread: 500 };
+    const input: ScenarioInput = { ...base, state: st, path: "meanRevert", horizon: 12 };
+    const dd = drawdownPath(input, "p2080", 30);
+    const terminal = dd.path[dd.path.length - 1];
+    expect(dd.troughMonth).toBeLessThan(12);
+    expect(dd.troughPct).toBeLessThan(terminal.pct);
+    expect(dd.maxDrawdownPct).toBeCloseTo(dd.troughPct, 9); // peak stays at 0 throughout a loss-only path
+  });
+
+  it("never reports a positive drawdown", () => {
+    for (const shape of PATHS.map((p) => p.id)) {
+      const dd = drawdownPath({ ...base, path: shape, state: { ...base.state, gdpGrowth: 2.9, vix: 11 } }, "p8020", 16);
+      expect(dd.maxDrawdownPct).toBeLessThanOrEqual(0);
+    }
+  });
+});
+
+describe("factor attribution", () => {
+  it("sums back to exactly the portfolio's own pct", () => {
+    const scenarios: Array<Record<string, number>> = [
+      { gdpGrowth: -1.8, vix: 30, igSpread: 165, hyBBSpread: 420, fedFunds: 2.75 }, // recession-ish
+      { cpiCore: 5.4, wageGrowth: 5.8, fedFunds: 5.0, gdpGrowth: 0.3 }, // stagflation-ish
+      { fedFunds: 5.5, realRate10y: 2.6 }, // a single policy move
+    ];
+    for (const set of scenarios) {
+      const r = runScenario({ ...base, state: { ...base.state, ...set } });
+      for (const p of PORTFOLIOS) {
+        const attrib = factorAttribution(r, p.id);
+        const sum = attrib.reduce((s, f) => s + f.contribPct, 0);
+        const actual = r.portfolios.find((x) => x.id === p.id)!.pct;
+        expect(sum).toBeCloseTo(actual, 6);
+      }
+    }
+  });
+
+  it("returns nothing at baseline", () => {
+    const r = runScenario(base);
+    for (const p of PORTFOLIOS) expect(factorAttribution(r, p.id)).toEqual([]);
+  });
+
+  it("books a lone monetary-policy move to rates-related categories", () => {
+    const r = runScenario({ ...base, state: { ...base.state, fedFunds: 5.5 } });
+    const attrib = factorAttribution(r, "p6040");
+    const monetary = attrib.find((f) => f.label === "Monetary Policy")?.contribPct ?? 0;
+    const assetBonds = attrib.find((f) => f.label === "Rates (priced assets)")?.contribPct ?? 0;
+    const total = attrib.reduce((s, f) => s + Math.abs(f.contribPct), 0);
+    // Over half the 60/40's bond sleeve is credit (IG/MBS/HY), whose rate leg
+    // is priced off already-priced Treasury assets rather than off fedFunds
+    // directly (see AssetRow's rateLegs) — one-hop attribution correctly
+    // books that to "Rates (priced assets)", not "Monetary Policy", even
+    // though fedFunds is the only thing that moved. The two rates-related
+    // buckets together should still account for most of a fedFunds-only
+    // scenario; a category unrelated to rates (e.g. Fiscal) should not.
+    expect((Math.abs(monetary) + Math.abs(assetBonds)) / total).toBeGreaterThan(0.6);
+    expect(attrib.find((f) => f.label === "Fiscal & Structural")).toBeUndefined();
+  });
+
+  it("books a pinned assumption to Direct Assumptions, not to a modelled category", () => {
+    // Setting the forward P/E directly pins SPX's "multiple" channel (see
+    // runScenario's SPX step): the modelled re-rating is discarded in favour
+    // of the level the user typed. With nothing else moved, SPX's earnings
+    // and risk-premium channels stay at zero, so essentially all of SPX's
+    // (and therefore the portfolio's) P&L should land in Direct Assumptions.
+    // SPX is 62% of the equity sleeve; the rest (RTY/EAFE/EM) carry a beta OFF
+    // SPX (an asset-sourced term, "Equities (priced assets)") rather than
+    // repeating the pin, so Direct Assumptions should be the largest bucket
+    // without being the only one.
+    const r = runScenario({ ...base, state: { ...base.state, fwdPE: 24 } });
+    expect(r.assets.SPX.pinned).toBe(true);
+    const attrib = factorAttribution(r, "p8020");
+    const total = attrib.reduce((s, f) => s + Math.abs(f.contribPct), 0);
+    expect(attrib[0]?.label).toBe("Direct assumptions");
+    expect(Math.abs(attrib[0]!.contribPct) / total).toBeGreaterThan(0.5);
   });
 });

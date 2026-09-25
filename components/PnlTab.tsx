@@ -2,10 +2,68 @@
 
 import React from "react";
 import { GROUP_ORDER, SECTORS, TOP_LEVEL_ASSETS, type Asset } from "@/lib/assets";
-import type { AssetResult, EngineResult, PortfolioResult } from "@/lib/engine";
+import { factorAttribution, type AssetResult, type EngineResult, type PortfolioResult } from "@/lib/engine";
 import { BOND_SLEEVE, PORTFOLIOS } from "@/lib/portfolios";
 import { fmtBp, fmtPct, fmtUsd, signColor } from "@/lib/format";
-import { GroupHeader, Panel, Td, Th, Tooltip, useFlash } from "./ui";
+import { Cap, GroupHeader, Panel, SignedBar, Td, Th, Tooltip, useFlash } from "./ui";
+
+// Factor Attribution: which macro category actually drove the selected
+// portfolio's P&L, not just which asset moved. This is a proportional
+// decomposition of the exact number already in Portfolio Impact Summary
+// above — see factorAttribution's own comment in lib/engine.ts for how the
+// split is computed and why it always sums back to that exact number.
+function FactorAttributionPanel({ r, selected }: { r: EngineResult; selected: string }) {
+  const attrib = React.useMemo(() => factorAttribution(r, selected), [r, selected]);
+  if (attrib.length === 0) {
+    return (
+      <Panel title="Factor Attribution" className="mb-2">
+        <div className="px-3 py-4">
+          <Cap>Baseline &mdash; nothing to attribute yet.</Cap>
+        </div>
+      </Panel>
+    );
+  }
+  const maxAbs = Math.max(...attrib.map((f) => Math.abs(f.contribPct)));
+  const total = attrib.reduce((s, f) => s + Math.abs(f.contribPct), 0) || 1;
+  return (
+    <Panel title="Factor Attribution" className="mb-2">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[11px]">
+          <thead>
+            <tr className="bg-term-raised">
+              <Th className="w-[220px]">Category</Th>
+              <Th className="w-[200px]">Contribution</Th>
+              <Th align="right" className="w-[80px]">
+                P&amp;L (pp)
+              </Th>
+              <Th align="right" className="w-[60px]">
+                Share
+              </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {attrib.map((f) => (
+              <tr key={f.id} className="border-b border-term-line even:bg-term-zebra">
+                <Td className="text-term-text">{f.label}</Td>
+                <Td className="p-0">
+                  <div className="px-2 py-dense">
+                    <SignedBar v={f.contribPct} max={maxAbs} />
+                  </div>
+                </Td>
+                <Td align="right" mono className={`font-medium ${signColor(f.contribPct)}`}>
+                  {fmtPct(f.contribPct)}
+                </Td>
+                <Td align="right" mono className="text-term-muted">
+                  {((Math.abs(f.contribPct) / total) * 100).toFixed(0)}%
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
 
 // Portfolio Impact Summary (one row per allocation strategy) is exported
 // separately and rendered above the analytics tabs in page.tsx, since it
@@ -366,6 +424,7 @@ export default function PnlTab({
 
   return (
     <>
+      <FactorAttributionPanel r={r} selected={port.id} />
       <Panel title={`Asset Detail — ${port.label} weights`}>
         <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[11px]">

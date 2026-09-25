@@ -181,3 +181,43 @@ export function responseWeight(
   if (shape === "immediate") return responseKernel(channel, horizon);
   return w;
 }
+
+/**
+ * Generalises `responseWeight` to an evaluation point BEFORE the terminal
+ * horizon, for sampling the path a scenario actually takes rather than only
+ * its endpoint (see engine.ts's `drawdownPath`).
+ *
+ * The shock's own delivery schedule is unchanged — `f` is still evaluated
+ * against the FULL horizon, so a "Staged" path's steps land at the same
+ * months regardless of where we stop looking. What changes is how much
+ * transmission time each already-delivered increment has had: instead of
+ * `horizon - sMid` (time to the terminal horizon), it is `evalMonths - sMid`
+ * (time to this earlier point). `responseKernel` already returns 0 for a
+ * non-positive argument, so an increment that has not landed yet by
+ * `evalMonths` contributes nothing, with no separate branch needed for it.
+ *
+ * `responseWeight(channel, shape, horizon, steps)` is exactly
+ * `responseWeightAt(channel, shape, horizon, steps, horizon)` — asserted in
+ * tests/engine.test.ts so the two cannot silently drift apart.
+ */
+export function responseWeightAt(
+  channel: Channel,
+  shape: PathShape,
+  horizon: number,
+  steps: number,
+  evalMonths: number,
+): number {
+  const f = PATH_BY_ID[shape].f;
+  const n = clampSteps(steps);
+  let w = 0;
+  for (let i = 1; i <= n; i++) {
+    const t0 = (i - 1) / n;
+    const t1 = i / n;
+    const df = f(t1) - f(t0);
+    if (df === 0) continue;
+    const sMid = ((t0 + t1) / 2) * horizon;
+    w += df * responseKernel(channel, evalMonths - sMid);
+  }
+  if (shape === "immediate") return responseKernel(channel, evalMonths);
+  return w;
+}

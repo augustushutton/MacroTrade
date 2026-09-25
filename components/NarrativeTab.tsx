@@ -4,9 +4,81 @@ import React from "react";
 import type { EngineResult, Term } from "@/lib/engine";
 import type { ScenarioInput } from "@/lib/engine";
 import { ASSETS } from "@/lib/assets";
+import { referenceModels } from "@/lib/econometrics";
 import { fmtBp, fmtNum, fmtPct, fmtSigned, signColor } from "@/lib/format";
 import { movedVars } from "@/lib/vars";
-import { Btn, GroupHeader, Panel, Td, Th, Tooltip } from "./ui";
+import { Btn, Cap, GroupHeader, Panel, SignedBar, Td, Th, Tooltip } from "./ui";
+
+// Reference Models: published macro relationships (Taylor rule, Okun's law,
+// a reduced-form Phillips curve), run purely as a diagnostic cross-check of
+// whether the scenario's OWN inflation/growth/policy/unemployment
+// assumptions imply each other consistently. These never feed the pricing
+// engine — see lib/econometrics.ts's own header comment for why swapping a
+// single-equation textbook coefficient into a jointly-calibrated cross-asset
+// model would not be an improvement, and for the citations behind each
+// number here.
+function ReferenceModelsPanel({ input }: { input: ScenarioInput }) {
+  const models = referenceModels(input.state);
+  const maxAbsGap = Math.max(1e-6, ...models.map((m) => Math.abs(m.actual - m.implied)));
+  return (
+    <Panel title="Reference Models (published estimates, cross-check only)">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[11px]">
+          <thead>
+            <tr className="bg-term-raised">
+              <Th className="w-[140px]">Model</Th>
+              <Th align="right" className="w-[100px]">
+                Implied
+              </Th>
+              <Th align="right" className="w-[100px]">
+                Scenario
+              </Th>
+              <Th className="w-[130px]">Gap</Th>
+              <Th>Citation</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {models.map((m) => {
+              const gap = m.actual - m.implied;
+              return (
+                <React.Fragment key={m.id}>
+                  <tr className="border-b border-term-line even:bg-term-zebra">
+                    <Td className="text-term-text">
+                      <Tooltip content={m.formula}>{m.label}</Tooltip>
+                    </Td>
+                    <Td align="right" mono className="text-term-muted">
+                      {fmtSigned(m.implied, 2)} {m.unit}
+                    </Td>
+                    <Td align="right" mono className="font-medium text-term-text">
+                      {fmtSigned(m.actual, 2)} {m.unit}
+                    </Td>
+                    <Td className="p-0">
+                      <div className="px-2 py-dense">
+                        <SignedBar v={gap} max={maxAbsGap} />
+                      </div>
+                    </Td>
+                    <Td className="text-term-sub">{m.citation}</Td>
+                  </tr>
+                  <tr className="border-b border-term-line bg-term-raised">
+                    <Td colSpan={5} className="text-term-muted">
+                      <span className="text-term-edge">{m.impliedLabel} vs {m.actualLabel}:</span> {m.note}
+                    </Td>
+                  </tr>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="border-t border-term-line px-2 py-1">
+        <Cap>
+          Diagnostic only &mdash; these relationships are not part of the pricing engine above and do not affect any
+          asset&apos;s price return.
+        </Cap>
+      </div>
+    </Panel>
+  );
+}
 
 // Derivation table: beta × shock × multiplier = value, grouped by asset class.
 
@@ -168,6 +240,7 @@ export default function NarrativeTab({
 
   return (
     <div className="space-y-2">
+      <ReferenceModelsPanel input={input} />
       <Panel title="Inputs Moved">
         <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[11px]">
