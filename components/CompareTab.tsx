@@ -7,7 +7,6 @@ import { HORIZON_LABEL, PATH_BY_ID } from "@/lib/paths";
 import { REGIME_BY_ID } from "@/lib/regimes";
 import { VAR_BY_ID } from "@/lib/vars";
 import { PRESETS, PRESET_GROUPS, presetState, type Preset } from "@/lib/scenarios";
-import { HISTORICAL_EPISODES, backtestEpisode, matchEpisodes } from "@/lib/historical";
 import { fmtPct, fmtSigned, signColor } from "@/lib/format";
 import { Btn, Cap, Panel, SignedBar, Td, Th, Tooltip } from "./ui";
 
@@ -160,115 +159,6 @@ function VarDeltaTable({ live, picked }: { live: ScenarioInput["state"]; picked:
   );
 }
 
-/** Historical analog match + backtest. Similarity is a real cosine-similarity
- *  computation over the two scenarios' normalised shock vectors (see
- *  lib/historical.ts's matchEpisodes); the backtest runs the SAME
- *  runScenario every other tab uses, fed the episode's documented inputs, and
- *  compares its output to independently documented realized history. Every
- *  episode's citation and the module-level comment in lib/historical.ts spell
- *  out that these are rounded, recalled approximations (this sandbox has no
- *  live macro-data access), not decimal-precise history. */
-function HistoricalAnalogPanel({ input }: { input: ScenarioInput }) {
-  const [pickedId, setPickedId] = React.useState<string | null>(null);
-  const matches = React.useMemo(() => matchEpisodes(input.state), [input.state]);
-  const picked = pickedId ? HISTORICAL_EPISODES.find((e) => e.id === pickedId) : matches[0]?.episode;
-  const backtest = React.useMemo(() => (picked ? backtestEpisode(picked) : null), [picked]);
-  const maxAbsSim = Math.max(1e-6, ...matches.map((m) => Math.abs(m.similarity)));
-
-  return (
-    <>
-      <Panel title="Historical Analog Match">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
-            <thead>
-              <tr className="bg-term-raised">
-                <Th className="w-[220px]">Episode</Th>
-                <Th className="w-[140px]">Window</Th>
-                <Th className="w-[160px]">Similarity to On Screen</Th>
-                <Th>Gist</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {matches.map(({ episode, similarity }, i) => (
-                <tr
-                  key={episode.id}
-                  onClick={() => setPickedId(episode.id)}
-                  className={`cursor-pointer border-b border-term-line hover:bg-info/10 ${
-                    (picked?.id ?? matches[0]?.episode.id) === episode.id ? "bg-term-raised" : i % 2 === 1 ? "bg-term-zebra" : ""
-                  }`}
-                >
-                  <Td className="font-medium text-term-text">{episode.label}</Td>
-                  <Td className="text-term-sub">{episode.dateRange}</Td>
-                  <Td className="p-0">
-                    <div className="px-2 py-dense">
-                      <SignedBar v={similarity} max={maxAbsSim} />
-                    </div>
-                  </Td>
-                  <Td className="text-term-muted">{episode.gist}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="border-t border-term-line px-2 py-1">
-          <Cap>
-            Cosine similarity of normalised shock vectors, over every variable either scenario moved &mdash; direction
-            and shape, not overall size. Click a row to backtest it below.
-          </Cap>
-        </div>
-      </Panel>
-
-      {picked && backtest ? (
-        <Panel
-          title={`Backtest: ${picked.label}`}
-          right={<Cap>Model regime detected: {REGIME_BY_ID[backtest.regime].label}</Cap>}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[11px]">
-              <thead>
-                <tr className="bg-term-raised">
-                  <Th className="w-[220px]">Asset</Th>
-                  <Th align="right" className="w-[110px]">
-                    Model (this scenario)
-                  </Th>
-                  <Th align="right" className="w-[110px]">
-                    Realized (documented)
-                  </Th>
-                  <Th className="w-[140px]">Diff</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {backtest.comparisons.map((c, i) => {
-                  const maxAbsDiff = Math.max(1e-6, ...backtest.comparisons.map((x) => Math.abs(x.diffPp)));
-                  return (
-                    <tr key={c.label} className={`border-b border-term-line ${i % 2 === 1 ? "bg-term-zebra" : ""}`}>
-                      <Td className="text-term-text">{c.label}</Td>
-                      <Td align="right" mono className={signColor(c.modelPct)}>
-                        {fmtPct(c.modelPct)}
-                      </Td>
-                      <Td align="right" mono className={signColor(c.realizedPct)}>
-                        {fmtPct(c.realizedPct)}
-                      </Td>
-                      <Td className="p-0">
-                        <div className="px-2 py-dense">
-                          <SignedBar v={c.diffPp} max={maxAbsDiff} />
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="border-t border-term-line px-2 py-1">
-            <Cap>{picked.citation}</Cap>
-          </div>
-        </Panel>
-      ) : null}
-    </>
-  );
-}
-
 export default function CompareTab({
   input,
   group,
@@ -406,8 +296,6 @@ export default function CompareTab({
           </Panel>
         </>
       ) : null}
-
-      <HistoricalAnalogPanel input={input} />
     </div>
   );
 }

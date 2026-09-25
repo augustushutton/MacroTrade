@@ -410,11 +410,8 @@ function priceOf(channels: ChannelResult[]): number {
 }
 
 /** Price return implied by a yield move. The duration leg is the log response,
- *  so compounding it recovers most of what ignoring convexity would have cost.
- *  Exported so lib/historical.ts can convert a documented HISTORICAL yield
- *  change into a price return using the exact same convention this model
- *  uses internally, rather than a second, potentially-inconsistent formula. */
-export function priceFromYield(duration: number, yieldBp: number): number {
+ *  so compounding it recovers most of what ignoring convexity would have cost. */
+function priceFromYield(duration: number, yieldBp: number): number {
   return compound(-duration * (yieldBp / 100));
 }
 
@@ -425,8 +422,9 @@ export function priceFromYield(duration: number, yieldBp: number): number {
  * betas, collinearity shrink, second-round links) is identical, because
  * those describe the SIZE of an already-arrived shock, not how much time it
  * has had to transmit. Omitted, this reproduces the original single-argument
- * `runScenario` exactly (`drawdownPath` below is the one caller that passes
- * it, and tests/engine.test.ts checks the equivalence directly).
+ * `runScenario` exactly (tests/engine.test.ts checks the equivalence
+ * directly). No caller passes it today; kept as engine-level infrastructure
+ * for any future sub-horizon query.
  */
 export function runScenario(input: ScenarioInput, evalMonths?: number): EngineResult {
   const { state, horizon, path, steps } = input;
@@ -875,63 +873,6 @@ export function horizonLadder(input: ScenarioInput, portfolioId: string): Array<
     const r = runScenario({ ...input, horizon: h });
     return { horizon: h, pct: r.portfolios.find((p) => p.id === portfolioId)?.pct ?? 0 };
   });
-}
-
-// ---------------------------------------------------------------------------
-// Drawdown along the delivery path.
-//
-// `horizonLadder` re-runs the scenario at four FIXED horizons (3/6/12/24
-// months) — useful as a term structure, but it cannot show a path that
-// overshoots and gives some of it back before the chosen horizon (the
-// "Mean Reverting" path is built to do exactly that: 1.35x near 35% of the
-// horizon, settling at 0.55x). `drawdownPath` instead samples the SAME
-// scenario's OWN chosen horizon at intermediate months, using
-// `runScenario`'s `evalMonths` parameter, and reports the worst peak-to-
-// trough decline along that path — the standard drawdown definition, not
-// just the single most negative sampled point, which would miss a scenario
-// that rallies first and only later gives it back.
-// ---------------------------------------------------------------------------
-export interface DrawdownPoint {
-  /** Months from t=0. */
-  month: number;
-  pct: number;
-}
-
-export interface DrawdownResult {
-  /** t=0 (pct 0) through the full horizon, `samples` points apart. */
-  path: DrawdownPoint[];
-  /** Month at which the worst peak-to-trough decline bottoms out. */
-  troughMonth: number;
-  /** Portfolio return at the trough. */
-  troughPct: number;
-  /** Peak-to-trough decline, in percentage points. Always <= 0. */
-  maxDrawdownPct: number;
-}
-
-export function drawdownPath(input: ScenarioInput, portfolioId: string, samples = 24): DrawdownResult {
-  const n = Math.max(4, Math.min(60, Math.round(samples)));
-  const path: DrawdownPoint[] = [{ month: 0, pct: 0 }];
-  for (let i = 1; i <= n; i++) {
-    const u = (input.horizon * i) / n;
-    const r = runScenario(input, u);
-    const pct = r.portfolios.find((p) => p.id === portfolioId)?.pct ?? 0;
-    path.push({ month: +u.toFixed(3), pct });
-  }
-
-  let peak = 0;
-  let maxDrawdownPct = 0;
-  let troughMonth = 0;
-  let troughPct = 0;
-  for (const pt of path) {
-    if (pt.pct > peak) peak = pt.pct;
-    const dd = pt.pct - peak;
-    if (dd < maxDrawdownPct) {
-      maxDrawdownPct = dd;
-      troughMonth = pt.month;
-      troughPct = pt.pct;
-    }
-  }
-  return { path, troughMonth, troughPct, maxDrawdownPct };
 }
 
 // ---------------------------------------------------------------------------

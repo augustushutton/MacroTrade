@@ -185,7 +185,7 @@ export function responseWeight(
 /**
  * Generalises `responseWeight` to an evaluation point BEFORE the terminal
  * horizon, for sampling the path a scenario actually takes rather than only
- * its endpoint (see engine.ts's `drawdownPath`).
+ * its endpoint (see `runScenario`'s `evalMonths` parameter in engine.ts).
  *
  * The shock's own delivery schedule is unchanged — `f` is still evaluated
  * against the FULL horizon, so a "Staged" path's steps land at the same

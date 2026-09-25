@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { drawdownPath, heatGrid, horizonLadder, sensitivity, type DrawdownResult, type ScenarioInput } from "@/lib/engine";
+import { heatGrid, horizonLadder, sensitivity, type ScenarioInput } from "@/lib/engine";
 import { monteCarloVaR, type MonteCarloResult } from "@/lib/montecarlo";
 import { HORIZON_LABEL } from "@/lib/paths";
 import { VAR_BY_ID, movedVars } from "@/lib/vars";
@@ -9,7 +9,8 @@ import { fmtPct, fmtSigned, heatBg, heatFg, signColor, unitLabel } from "@/lib/f
 import { Btn, Cap, Panel, Select, SignedBar, Td, Th } from "./ui";
 
 /** Histogram of the Monte Carlo outcome distribution, with the 95% VaR
- *  threshold marked. Same dense, no-library SVG register as DrawdownChart. */
+ *  threshold marked. Dense, no-library SVG in the same register as the rest
+ *  of the app's charts. */
 function VarHistogram({ mc }: { mc: MonteCarloResult }) {
   const w = 640;
   const h = 120;
@@ -57,45 +58,6 @@ function VarHistogram({ mc }: { mc: MonteCarloResult }) {
   );
 }
 
-/** Compact SVG line chart of a scenario's portfolio return sampled along its
- *  own delivery path, with the peak-to-trough drawdown marked. Kept in the
- *  same dense, no-decoration register as the rest of the app's tables — an
- *  area fill and a single emphasised point, not a full charting library. */
-function DrawdownChart({ dd }: { dd: DrawdownResult }) {
-  const w = 640;
-  const h = 92;
-  const padL = 2;
-  const padR = 2;
-  const padT = 8;
-  const padB = 14;
-  const lastMonth = dd.path[dd.path.length - 1]?.month || 1;
-  const pcts = dd.path.map((p) => p.pct);
-  const minPct = Math.min(0, ...pcts);
-  const maxPct = Math.max(0, ...pcts);
-  const spanY = Math.max(maxPct - minPct, 1e-6);
-  const x = (m: number) => padL + (m / lastMonth) * (w - padL - padR);
-  const y = (v: number) => padT + (1 - (v - minPct) / spanY) * (h - padT - padB);
-  const zeroY = y(0);
-  const line = dd.path.map((p) => `${x(p.month).toFixed(1)},${y(p.pct).toFixed(1)}`).join(" ");
-  const area = `${x(0).toFixed(1)},${zeroY.toFixed(1)} ${line} ${x(lastMonth).toFixed(1)},${zeroY.toFixed(1)}`;
-  const isLoss = dd.maxDrawdownPct < -1e-9;
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} role="img" aria-label="Portfolio return sampled along the scenario's delivery path">
-      <line x1={padL} y1={zeroY} x2={w - padR} y2={zeroY} className="stroke-term-line" strokeWidth={1} />
-      <polygon points={area} className={isLoss ? "fill-down/15" : "fill-up/15"} />
-      <polyline points={line} fill="none" className={isLoss ? "stroke-down" : "stroke-up"} strokeWidth={1.5} />
-      {isLoss ? <circle cx={x(dd.troughMonth)} cy={y(dd.troughPct)} r={3} className="fill-down" /> : null}
-      <text x={padL} y={h - 3} fontSize={9} className="fill-term-muted">
-        0m
-      </text>
-      <text x={w - padR} y={h - 3} textAnchor="end" fontSize={9} className="fill-term-muted">
-        {lastMonth.toFixed(0)}m
-      </text>
-    </svg>
-  );
-}
-
 // Three views of the same scenario: which variable carries it, how it behaves
 // across a two-variable surface, and how it re-prices as the horizon extends.
 
@@ -117,7 +79,6 @@ export default function SensitivityTab({
   const moved = movedVars(input.state);
   const bars = React.useMemo(() => sensitivity(input, portfolioId), [input, portfolioId]);
   const ladder = React.useMemo(() => horizonLadder(input, portfolioId), [input, portfolioId]);
-  const drawdown = React.useMemo(() => drawdownPath(input, portfolioId, 24), [input, portfolioId]);
 
   // Transient, not persisted (same treatment as CompareTab's picked-preset
   // drill-down) — this is a "what if the inputs were less certain" dial, not
@@ -160,7 +121,7 @@ export default function SensitivityTab({
                 <Th align="right" className="w-[100px]">
                   Move
                 </Th>
-                <Th className="w-[160px]">Tornado</Th>
+                <Th className="w-[160px]">Impact</Th>
                 <Th align="right" className="w-[80px]">
                   Impact %
                 </Th>
@@ -323,31 +284,6 @@ export default function SensitivityTab({
       </div>
 
       <Panel
-        title="Max Drawdown Along Path"
-        right={
-          <Cap>
-            Trough <span className={signColor(drawdown.troughPct)}>{fmtPct(drawdown.troughPct)}</span> at{" "}
-            {drawdown.troughMonth.toFixed(1)}m &middot; Max DD {fmtPct(drawdown.maxDrawdownPct)}
-          </Cap>
-        }
-      >
-        {/* horizonLadder re-runs the scenario at four FIXED horizons (3/6/12/24)
-            as a term structure; this instead samples the scenario's OWN chosen
-            horizon at intermediate months, so a path that overshoots and gives
-            some of it back (Mean Reverting) or a Staged path's discrete jumps
-            show up as an actual trajectory rather than only an endpoint. */}
-        <div className="px-2 py-2">
-          <DrawdownChart dd={drawdown} />
-        </div>
-        <div className="border-t border-term-line px-2 py-1">
-          <Cap>
-            Sampled every {(drawdown.path[drawdown.path.length - 1].month / (drawdown.path.length - 1)).toFixed(2)}{" "}
-            months along the current path/horizon &mdash; peak-to-trough decline, not the single worst point
-          </Cap>
-        </div>
-      </Panel>
-
-      <Panel
         title="Scenario Uncertainty (Monte Carlo)"
         right={
           <div className="flex items-center gap-1">
@@ -407,14 +343,6 @@ export default function SensitivityTab({
               </tr>
             </tbody>
           </table>
-        </div>
-        <div className="border-t border-term-line px-2 py-1">
-          <Cap>
-            {monteCarlo.runs} re-runs of the real engine, each with every moved variable&apos;s shock independently
-            perturbed by &plusmn;{(noisePct * 100).toFixed(0)}% (one sigma, Gaussian). Scenario/parameter uncertainty,
-            not a historical or covariance-based portfolio risk estimate &mdash; this app has no return history to
-            estimate one from.
-          </Cap>
         </div>
       </Panel>
     </div>

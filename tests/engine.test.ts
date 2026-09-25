@@ -3,7 +3,7 @@ import { SECOND_ROUND, DERIVED_COMMODITY, DERIVED_EQUITY, RATE_BETAS, SPREAD_BET
 import { ASSET_BY_ID, ASSETS } from "@/lib/assets";
 import { VAR_BY_ID, baselineState, collinearityShrink, crossTierShrink, themeShrink } from "@/lib/vars";
 import { saturateMultiplier } from "@/lib/regimes";
-import { drawdownPath, factorAttribution, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
+import { factorAttribution, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
 import { PATHS, responseKernel, responseWeight, responseWeightAt, samplePath } from "@/lib/paths";
 import { PORTFOLIOS, portfolioWeights } from "@/lib/portfolios";
 import { PRESETS, presetState } from "@/lib/scenarios";
@@ -481,7 +481,7 @@ describe("compounding", () => {
   });
 });
 
-describe("sub-horizon evaluation (responseWeightAt / drawdownPath)", () => {
+describe("sub-horizon evaluation (responseWeightAt)", () => {
   const CHANNELS = ["rate", "spread", "multiple", "earnings", "riskPremium", "price"] as const;
 
   it("matches responseWeight exactly when evaluated at the terminal horizon", () => {
@@ -509,34 +509,6 @@ describe("sub-horizon evaluation (responseWeightAt / drawdownPath)", () => {
     // or path shape — responseKernel's own zero-at-zero guard should carry
     // straight through.
     for (const c of CHANNELS) expect(responseWeightAt(c, "immediate", 12, 8, 0)).toBe(0);
-  });
-
-  it("drawdownPath starts at (0, 0) and ends at the scenario's own horizon", () => {
-    const st = { ...base.state, gdpGrowth: -2.0, vix: 30, igSpread: 170 };
-    const dd = drawdownPath({ ...base, state: st, horizon: 12 }, "p6040", 12);
-    expect(dd.path[0]).toEqual({ month: 0, pct: 0 });
-    expect(dd.path[dd.path.length - 1].month).toBeCloseTo(12, 6);
-  });
-
-  it("finds an interior trough worse than the terminal point on an overshooting path", () => {
-    // "Mean Reverting" delivers 1.35x the terminal shock near 35% of the
-    // horizon before settling back to 0.55x (see lib/paths.ts) — a scenario
-    // that only loses money should therefore bottom out mid-path, not at the
-    // horizon, and the terminal point should recover part of that trough.
-    const st = { ...base.state, vix: 40, igSpread: 200, hyBBSpread: 500 };
-    const input: ScenarioInput = { ...base, state: st, path: "meanRevert", horizon: 12 };
-    const dd = drawdownPath(input, "p2080", 30);
-    const terminal = dd.path[dd.path.length - 1];
-    expect(dd.troughMonth).toBeLessThan(12);
-    expect(dd.troughPct).toBeLessThan(terminal.pct);
-    expect(dd.maxDrawdownPct).toBeCloseTo(dd.troughPct, 9); // peak stays at 0 throughout a loss-only path
-  });
-
-  it("never reports a positive drawdown", () => {
-    for (const shape of PATHS.map((p) => p.id)) {
-      const dd = drawdownPath({ ...base, path: shape, state: { ...base.state, gdpGrowth: 2.9, vix: 11 } }, "p8020", 16);
-      expect(dd.maxDrawdownPct).toBeLessThanOrEqual(0);
-    }
   });
 });
 
