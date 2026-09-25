@@ -133,8 +133,8 @@ export function PortfolioSummary({
   );
 }
 
-type SortKey = "w" | "rate" | "spread" | "yield" | "duration" | "price" | "contrib";
-type SortDir = "asc" | "desc";
+export type SortKey = "w" | "rate" | "spread" | "yield" | "duration" | "price" | "contrib";
+export type SortDir = "asc" | "desc";
 
 function sortValue(a: Asset, ar: AssetResult, w: number | undefined, key: SortKey): number {
   const NEG = Number.NEGATIVE_INFINITY;
@@ -308,6 +308,12 @@ export default function PnlTab({
   pinned,
   onTogglePin,
   onJumpToDerivation,
+  openSectors,
+  setOpenSectors,
+  sortKey,
+  setSortKey,
+  sortDir,
+  setSortDir,
 }: {
   r: EngineResult;
   selected: string;
@@ -315,10 +321,13 @@ export default function PnlTab({
   pinned: string[];
   onTogglePin: (id: string) => void;
   onJumpToDerivation: (id: string) => void;
+  openSectors: boolean;
+  setOpenSectors: (fn: (v: boolean) => boolean) => void;
+  sortKey: SortKey | null;
+  setSortKey: (k: SortKey | null) => void;
+  sortDir: SortDir;
+  setSortDir: (d: SortDir) => void;
 }) {
-  const [openSectors, setOpenSectors] = React.useState(false);
-  const [sortKey, setSortKey] = React.useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
   const port = r.portfolios.find((p) => p.id === selected) ?? r.portfolios[0];
   const wByAsset: Record<string, number> = {};
   for (const l of port.lines) wByAsset[l.asset] = l.w;

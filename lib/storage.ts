@@ -1,6 +1,8 @@
 import { baselineState, VAR_BY_ID, type VarState } from "./vars";
 import type { Horizon, PathShape } from "./paths";
 import type { RegimeId } from "./regimes";
+import type { GroupTabId } from "@/components/NarrativeTab";
+import type { SortKey, SortDir } from "@/components/PnlTab";
 
 // Saved scenarios live in localStorage. No account, no backend, no network.
 //
@@ -234,7 +236,22 @@ export interface SessionState {
   open: Record<string, boolean>;
   /** Asset ids pinned to the top of the Asset Detail table. */
   pinned: string[];
+  // Per-view UI state (see the comment on ScenarioContextValue in
+  // lib/scenario-context.tsx for why this lives alongside the scenario
+  // itself rather than as component-local state). All optional so a session
+  // saved before these existed still loads cleanly.
+  presetOpen?: Record<string, boolean>;
+  compareGroup?: string;
+  narrativeGroupTab?: GroupTabId;
+  sensitivityXVar?: string;
+  sensitivityYVar?: string;
+  pnlOpenSectors?: boolean;
+  pnlSortKey?: SortKey | null;
+  pnlSortDir?: SortDir;
 }
+
+const NARRATIVE_GROUP_TABS = new Set(["equities", "fx", "bonds", "commodities"]);
+const PNL_SORT_KEYS = new Set(["w", "rate", "spread", "yield", "duration", "price", "contrib"]);
 
 export function saveSession(s: SessionState): void {
   if (typeof window === "undefined") return;
@@ -263,6 +280,14 @@ export function loadSession(): SessionState | null {
       portfolioId: typeof p.portfolioId === "string" ? p.portfolioId : "p6040",
       open: p.open && typeof p.open === "object" ? p.open : {},
       pinned: Array.isArray(p.pinned) ? p.pinned.filter((x: unknown) => typeof x === "string") : [],
+      presetOpen: p.presetOpen && typeof p.presetOpen === "object" ? p.presetOpen : undefined,
+      compareGroup: typeof p.compareGroup === "string" ? p.compareGroup : undefined,
+      narrativeGroupTab: NARRATIVE_GROUP_TABS.has(p.narrativeGroupTab) ? (p.narrativeGroupTab as GroupTabId) : undefined,
+      sensitivityXVar: typeof p.sensitivityXVar === "string" ? p.sensitivityXVar : undefined,
+      sensitivityYVar: typeof p.sensitivityYVar === "string" ? p.sensitivityYVar : undefined,
+      pnlOpenSectors: typeof p.pnlOpenSectors === "boolean" ? p.pnlOpenSectors : undefined,
+      pnlSortKey: PNL_SORT_KEYS.has(p.pnlSortKey) ? (p.pnlSortKey as SortKey) : null,
+      pnlSortDir: p.pnlSortDir === "asc" || p.pnlSortDir === "desc" ? (p.pnlSortDir as SortDir) : undefined,
     };
   } catch {
     return null;

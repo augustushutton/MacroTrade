@@ -6,8 +6,22 @@ import { useScenario } from "@/lib/scenario-context";
 
 export default function PnlPage() {
   const router = useRouter();
-  const { result, portfolioId, setPortfolioId, notional, hydrated, pinned, togglePin, setFocusAsset } =
-    useScenario();
+  const {
+    result,
+    portfolioId,
+    setPortfolioId,
+    notional,
+    hydrated,
+    pinned,
+    togglePin,
+    setFocusAsset,
+    pnlOpenSectors,
+    setPnlOpenSectors,
+    pnlSortKey,
+    setPnlSortKey,
+    pnlSortDir,
+    setPnlSortDir,
+  } = useScenario();
 
   function jumpToDerivation(assetId: string) {
     setFocusAsset(assetId);
@@ -32,6 +46,12 @@ export default function PnlPage() {
         pinned={pinned}
         onTogglePin={togglePin}
         onJumpToDerivation={jumpToDerivation}
+        openSectors={pnlOpenSectors}
+        setOpenSectors={setPnlOpenSectors}
+        sortKey={pnlSortKey}
+        setSortKey={setPnlSortKey}
+        sortDir={pnlSortDir}
+        setSortDir={setPnlSortDir}
       />
     </div>
   );

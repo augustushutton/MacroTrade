@@ -11,7 +11,8 @@ import { useScenario } from "@/lib/scenario-context";
 // gives it and a sidebar didn't.
 
 export default function BuilderPage() {
-  const { state, setVar, resetGroup, open, setOpen, query, applyPreset, presetId } = useScenario();
+  const { state, setVar, resetGroup, open, setOpen, query, applyPreset, presetId, presetOpen, setPresetOpen } =
+    useScenario();
 
   return (
     <div className="space-y-3">
@@ -21,7 +22,7 @@ export default function BuilderPage() {
           PresetBar.tsx) still marks that distinction visually; the eyebrow
           labels that used to spell it out in text were removed by request. */}
       <div>
-        <PresetBar activeId={presetId} onPick={applyPreset} />
+        <PresetBar activeId={presetId} onPick={applyPreset} expanded={presetOpen} setExpanded={setPresetOpen} />
       </div>
       <div>
         <VarForm

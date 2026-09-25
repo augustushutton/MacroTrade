@@ -13,16 +13,22 @@ import { Cap, Panel, Select, Td, Th } from "./ui";
 export default function SensitivityTab({
   input,
   portfolioId,
+  xVar,
+  setXVar,
+  yVar,
+  setYVar,
 }: {
   input: ScenarioInput;
   portfolioId: string;
+  xVar: string;
+  setXVar: (id: string) => void;
+  yVar: string;
+  setYVar: (id: string) => void;
 }) {
   const moved = movedVars(input.state);
   const bars = React.useMemo(() => sensitivity(input, portfolioId), [input, portfolioId]);
   const ladder = React.useMemo(() => horizonLadder(input, portfolioId), [input, portfolioId]);
 
-  const [xVar, setXVar] = React.useState<string>("");
-  const [yVar, setYVar] = React.useState<string>("");
   const x = xVar || moved[0]?.id || "fedFunds";
   const y = yVar || moved[1]?.id || (x === "cpiCore" ? "gdpGrowth" : "cpiCore");
   const grid = React.useMemo(

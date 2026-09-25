@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { PRESETS, type Preset } from "@/lib/scenarios";
 import { GroupHeader, Tooltip } from "./ui";
 
@@ -10,19 +9,28 @@ import { GroupHeader, Tooltip } from "./ui";
 const PRIMARY_GROUPS = ["Growth", "Inflation", "Credit & Liquidity"];
 const SECONDARY_GROUPS = ["Policy", "External", "Curve"];
 
+// `expanded`/`setExpanded` used to be local state here, which meant this
+// accordion reset to its hardcoded defaults every time the Builder route
+// remounted (e.g. navigating to P&L and back) even though the identical
+// pattern in VarForm's accordion survived, because VarForm's open state is
+// lifted into ScenarioContext and this wasn't. Now both live there.
+export const PRESET_DEFAULT_OPEN: Record<string, boolean> = {
+  Growth: true,
+  Inflation: true,
+  "Credit & Liquidity": true,
+};
+
 export default function PresetBar({
   activeId,
   onPick,
+  expanded,
+  setExpanded,
 }: {
   activeId: string | null;
   onPick: (p: Preset) => void;
+  expanded: Record<string, boolean>;
+  setExpanded: (group: string, v: boolean) => void;
 }) {
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({
-    Growth: true,
-    Inflation: true,
-    "Credit & Liquidity": true,
-  });
-
   const renderGroup = (group: string) => {
     const presets = PRESETS.filter((p) => p.group === group);
     const isOpen = expanded[group] ?? false;
@@ -30,7 +38,7 @@ export default function PresetBar({
 
     return (
       <div key={group}>
-        <GroupHeader onClick={() => setExpanded((e) => ({ ...e, [group]: !e[group] }))} openState={isOpen}>
+        <GroupHeader onClick={() => setExpanded(group, !isOpen)} openState={isOpen}>
           {group}
         </GroupHeader>
         {isOpen && (

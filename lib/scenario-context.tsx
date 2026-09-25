@@ -3,10 +3,13 @@
 import React from "react";
 import { runScenario, type ScenarioInput } from "@/lib/engine";
 import { baselineState, VAR_GROUPS, VARIABLES, VAR_BY_ID, type VarState } from "@/lib/vars";
-import { presetState, type Preset } from "@/lib/scenarios";
+import { presetState, PRESET_GROUPS, type Preset } from "@/lib/scenarios";
 import type { Horizon, PathShape } from "@/lib/paths";
 import { DEFAULT_NOTIONAL } from "@/lib/portfolios";
 import { toDelta, fromDelta, loadSession, saveSession } from "@/lib/storage";
+import { PRESET_DEFAULT_OPEN } from "@/components/PresetBar";
+import type { GroupTabId } from "@/components/NarrativeTab";
+import type { SortKey, SortDir } from "@/components/PnlTab";
 
 // Scenario state used to live entirely inside app/page.tsx's Workspace
 // component, which worked when the whole app was one screen. Now that the
@@ -44,6 +47,30 @@ interface ScenarioContextValue {
   result: ReturnType<typeof runScenario>;
   dirtyCount: number;
   hydrated: boolean;
+  // The fields below are UI-only state (which accordion is open, which tab
+  // or axis is picked) that used to live as local useState inside the
+  // component each route page renders. That worked when the whole app was
+  // one screen; once each results view became its own route, Next.js
+  // unmounts/remounts that component on every navigation and the local
+  // state reset — closing sub-boxes, forgetting the sort column, etc. Living
+  // here instead means it survives navigating between tabs, same as `open`
+  // above already did for VarForm.
+  presetOpen: Record<string, boolean>;
+  setPresetOpen: (g: string, v: boolean) => void;
+  compareGroup: string;
+  setCompareGroup: (g: string) => void;
+  narrativeGroupTab: GroupTabId;
+  setNarrativeGroupTab: (g: GroupTabId) => void;
+  sensitivityXVar: string;
+  setSensitivityXVar: (id: string) => void;
+  sensitivityYVar: string;
+  setSensitivityYVar: (id: string) => void;
+  pnlOpenSectors: boolean;
+  setPnlOpenSectors: React.Dispatch<React.SetStateAction<boolean>>;
+  pnlSortKey: SortKey | null;
+  setPnlSortKey: (k: SortKey | null) => void;
+  pnlSortDir: SortDir;
+  setPnlSortDir: (d: SortDir) => void;
 }
 
 const ScenarioContext = React.createContext<ScenarioContextValue | null>(null);
@@ -66,6 +93,17 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
   // so it doesn't keep re-triggering the scroll on unrelated re-renders.
   const [focusAsset, setFocusAsset] = React.useState<string | null>(null);
 
+  // Per-view UI state, lifted here for the reasons noted on
+  // ScenarioContextValue above (survive route navigation).
+  const [presetOpen, setPresetOpenState] = React.useState<Record<string, boolean>>(PRESET_DEFAULT_OPEN);
+  const [compareGroup, setCompareGroup] = React.useState<string>(PRESET_GROUPS[0]);
+  const [narrativeGroupTab, setNarrativeGroupTab] = React.useState<GroupTabId>("equities");
+  const [sensitivityXVar, setSensitivityXVar] = React.useState<string>("");
+  const [sensitivityYVar, setSensitivityYVar] = React.useState<string>("");
+  const [pnlOpenSectors, setPnlOpenSectors] = React.useState(false);
+  const [pnlSortKey, setPnlSortKey] = React.useState<SortKey | null>(null);
+  const [pnlSortDir, setPnlSortDir] = React.useState<SortDir>("desc");
+
   // Two-stage restore. `restored` flips true once the one-shot read from a
   // prior session has been applied (or found nothing) — the save effect below
   // waits on it so it can never fire before that read and clobber a session
@@ -87,6 +125,14 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       setPortfolioId(s.portfolioId);
       setOpenState((o) => ({ ...o, ...s.open }));
       setPinned(s.pinned);
+      if (s.presetOpen) setPresetOpenState((o) => ({ ...o, ...s.presetOpen }));
+      if (s.compareGroup) setCompareGroup(s.compareGroup);
+      if (s.narrativeGroupTab) setNarrativeGroupTab(s.narrativeGroupTab);
+      if (s.sensitivityXVar) setSensitivityXVar(s.sensitivityXVar);
+      if (s.sensitivityYVar) setSensitivityYVar(s.sensitivityYVar);
+      if (typeof s.pnlOpenSectors === "boolean") setPnlOpenSectors(s.pnlOpenSectors);
+      if (s.pnlSortKey !== undefined) setPnlSortKey(s.pnlSortKey);
+      if (s.pnlSortDir) setPnlSortDir(s.pnlSortDir);
     }
     setRestored(true);
   }, []);
@@ -107,8 +153,35 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       portfolioId,
       open,
       pinned,
+      presetOpen,
+      compareGroup,
+      narrativeGroupTab,
+      sensitivityXVar,
+      sensitivityYVar,
+      pnlOpenSectors,
+      pnlSortKey,
+      pnlSortDir,
     });
-  }, [restored, state, horizon, path, steps, notional, presetId, portfolioId, open, pinned]);
+  }, [
+    restored,
+    state,
+    horizon,
+    path,
+    steps,
+    notional,
+    presetId,
+    portfolioId,
+    open,
+    pinned,
+    presetOpen,
+    compareGroup,
+    narrativeGroupTab,
+    sensitivityXVar,
+    sensitivityYVar,
+    pnlOpenSectors,
+    pnlSortKey,
+    pnlSortDir,
+  ]);
 
   function togglePin(assetId: string) {
     setPinned((p) => (p.includes(assetId) ? p.filter((id) => id !== assetId) : [...p, assetId]));
@@ -188,6 +261,22 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     result,
     dirtyCount,
     hydrated,
+    presetOpen,
+    setPresetOpen: (g: string, v: boolean) => setPresetOpenState((o) => ({ ...o, [g]: v })),
+    compareGroup,
+    setCompareGroup,
+    narrativeGroupTab,
+    setNarrativeGroupTab,
+    sensitivityXVar,
+    setSensitivityXVar,
+    sensitivityYVar,
+    setSensitivityYVar,
+    pnlOpenSectors,
+    setPnlOpenSectors,
+    pnlSortKey,
+    setPnlSortKey,
+    pnlSortDir,
+    setPnlSortDir,
   };
 
   return <ScenarioContext.Provider value={value}>{children}</ScenarioContext.Provider>;

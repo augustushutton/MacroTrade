@@ -1,12 +1,16 @@
-'use client';
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ThemeProvider } from "@/lib/theme";
-import { ScenarioProvider } from "@/lib/scenario-context";
-import TopNav from "@/components/TopNav";
 import { NAV } from "@/lib/nav";
-import { Analytics } from '@vercel/analytics/react';
+import Providers from "./providers";
 
+// This file is a Server Component on purpose: `metadata`/`viewport` exports
+// are only allowed from a Server Component, and everything that needs
+// client-side state (theme, the scenario context, nav highlighting) has been
+// moved out to ./providers.tsx. Previously this file was marked "use client"
+// while also exporting `metadata`, which Next.js disallows outright — it
+// fails `next build` rather than warning, so this split is required for the
+// app to build at all, not just a style preference.
+//
 // Every other route (app/pnl, app/sensitivity, ...) declares an explicit,
 // descriptive title via its own layout.tsx, sourced from lib/nav.ts. The
 // root route gets the same treatment here rather than a bare "MacroTrade" —
@@ -34,17 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
       <body className="bg-term-bg text-term-text antialiased">
-        <ThemeProvider>
-          <ScenarioProvider>
-            <main className="mx-auto min-h-screen w-full max-w-[1680px] px-3 py-2">
-              <div className="mb-2 no-print">
-                <TopNav />
-              </div>
-              {children}
-            </main>
-          </ScenarioProvider>
-        </ThemeProvider>
-<Analytics />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -113,7 +113,7 @@ const GROUP_TABS = [
   { id: "bonds", label: "Derivations Bonds", groups: ["Bonds"] },
   { id: "commodities", label: "Derivations Commodities", groups: ["Commodities"] },
 ] as const;
-type GroupTabId = (typeof GROUP_TABS)[number]["id"];
+export type GroupTabId = (typeof GROUP_TABS)[number]["id"];
 
 function tabForGroup(groupName: string): GroupTabId {
   return GROUP_TABS.find((t) => (t.groups as readonly string[]).includes(groupName))?.id ?? "equities";
@@ -124,6 +124,8 @@ export default function NarrativeTab({
   input,
   focusAsset = null,
   onFocusHandled,
+  activeGroupTab,
+  setActiveGroupTab,
 }: {
   r: EngineResult;
   input: ScenarioInput;
@@ -131,8 +133,12 @@ export default function NarrativeTab({
    *  scroll to one asset's derivation on mount. Consumed once. */
   focusAsset?: string | null;
   onFocusHandled?: () => void;
+  activeGroupTab: GroupTabId;
+  setActiveGroupTab: (g: GroupTabId) => void;
 }) {
-  const [activeGroupTab, setActiveGroupTab] = React.useState<GroupTabId>("equities");
+  // justFocused is a one-shot ~1.6s highlight pulse, not durable UI state —
+  // it's deliberately kept local (not lifted to ScenarioContext) since there
+  // is nothing meaningful to restore after a route change or reload.
   const [justFocused, setJustFocused] = React.useState<string | null>(null);
   const moved = movedVars(input.state);
   // Every asset's full breakdown renders unconditionally now (no expand/

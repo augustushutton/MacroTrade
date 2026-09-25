@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { runScenario, type ScenarioInput } from "@/lib/engine";
 import { PORTFOLIOS } from "@/lib/portfolios";
 import { HORIZON_LABEL, PATH_BY_ID } from "@/lib/paths";
@@ -14,9 +13,15 @@ import { Btn, Cap, Panel, Td, Th, Tooltip } from "./ui";
 // preset is re-run through the live engine rather than cached, so a
 // comparison never mixes numbers from two different versions of the model.
 
-export default function CompareTab({ input }: { input: ScenarioInput }) {
-  const [group, setGroup] = React.useState<string>(PRESET_GROUPS[0]);
-
+export default function CompareTab({
+  input,
+  group,
+  setGroup,
+}: {
+  input: ScenarioInput;
+  group: string;
+  setGroup: (g: string) => void;
+}) {
   const live = runScenario(input);
   const rows = PRESETS.filter((p) => p.group === group).map((p) => {
     const r = runScenario({
