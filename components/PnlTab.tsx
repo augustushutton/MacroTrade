@@ -4,7 +4,7 @@ import React from "react";
 import { GROUP_ORDER, SECTORS, TOP_LEVEL_ASSETS, type Asset } from "@/lib/assets";
 import { factorAttribution, type AssetResult, type EngineResult, type PortfolioResult } from "@/lib/engine";
 import { BOND_SLEEVE, PORTFOLIOS } from "@/lib/portfolios";
-import { fmtBp, fmtPct, fmtUsd, signColor } from "@/lib/format";
+import { fmtBp, fmtPct, fmtUsd, signColor, signFillBg, signFillFg } from "@/lib/format";
 import { Cap, GroupHeader, Panel, SignedBar, Td, Th, Tooltip, useFlash } from "./ui";
 
 // Factor Attribution: which macro category actually drove the selected
@@ -50,7 +50,12 @@ function FactorAttributionPanel({ r, selected }: { r: EngineResult; selected: st
                     <SignedBar v={f.contribPct} max={maxAbs} />
                   </div>
                 </Td>
-                <Td align="right" mono className={`font-medium ${signColor(f.contribPct)}`}>
+                <Td
+                  align="right"
+                  mono
+                  className="font-medium"
+                  style={{ backgroundColor: signFillBg(f.contribPct), color: signFillFg(f.contribPct) }}
+                >
                   {fmtPct(f.contribPct)}
                 </Td>
                 <Td align="right" mono className="text-term-muted">
@@ -123,10 +128,20 @@ function PortfolioRow({
       <Td align="right" mono className={`border-r border-term-line ${signColor(p.dollars)} ${shockedFlash}`}>
         {fmtUsd(shocked)}
       </Td>
-      <Td align="right" mono className={`font-medium ${signColor(p.dollars)} ${dollarsFlash}`}>
+      <Td
+        align="right"
+        mono
+        className={`font-medium ${dollarsFlash}`}
+        style={{ backgroundColor: signFillBg(p.dollars), color: signFillFg(p.dollars) }}
+      >
         {fmtUsd(p.dollars)}
       </Td>
-      <Td align="right" mono className={`border-r border-term-line font-medium ${signColor(p.pct)} ${pctFlash}`}>
+      <Td
+        align="right"
+        mono
+        className={`border-r border-term-line font-medium ${pctFlash}`}
+        style={{ backgroundColor: signFillBg(p.pct), color: signFillFg(p.pct) }}
+      >
         {fmtPct(p.pct)}
       </Td>
       <Td align="right" mono className="text-term-muted">
@@ -214,12 +229,38 @@ function sortValue(a: Asset, ar: AssetResult, w: number | undefined, key: SortKe
   }
 }
 
+/** Largest |Price Impact %| across a set of instruments — the shared scale
+ *  each asset class's magnitude bar is drawn against, so a bar's length
+ *  means the same thing within that class regardless of which row it's on. */
+function maxAbsPrice(rows: Asset[], r: EngineResult): number {
+  let m = 0;
+  for (const a of rows) {
+    const v = r.assets[a.id]?.pricePct;
+    if (v !== undefined) m = Math.max(m, Math.abs(v));
+  }
+  return m;
+}
+
+/** Unweighted mean Price Impact % across a set of instruments — used as each
+ *  compact asset-class card's footer figure, since Commodities/FX carry no
+ *  portfolio weight to average by (see the AssetRowLean comment below) and a
+ *  simple mean still answers "how did this asset class move, broadly." */
+function avgPrice(rows: Asset[], r: EngineResult): number {
+  const vals: number[] = [];
+  for (const a of rows) {
+    const v = r.assets[a.id]?.pricePct;
+    if (v !== undefined) vals.push(v);
+  }
+  if (vals.length === 0) return 0;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
+
 function SectorRow({ s, r, hydrated }: { s: Asset; r: EngineResult; hydrated: boolean }) {
   const sr = r.assets[s.id];
   const priceFlash = useFlash(sr?.pricePct ?? 0, hydrated && sr !== undefined);
   if (!sr) return null;
   return (
-    <tr className="border-b border-term-line bg-term-raised">
+    <tr className="border-b border-term-line bg-term-raised hover:bg-term-line/10">
       <Td className="pl-6 text-term-muted">{s.label}</Td>
       {/* Sectors are a decomposition of SPX, not a separate holding, so
           Weight/Rate/Spread/Yield/Duration/Contribution genuinely don't
@@ -242,7 +283,12 @@ function SectorRow({ s, r, hydrated }: { s: Asset; r: EngineResult; hydrated: bo
       <Td align="right" mono className="text-term-edge border-r border-term-line">
         &mdash;
       </Td>
-      <Td align="right" mono className={`font-medium border-r border-term-line ${signColor(sr.pricePct)} ${priceFlash}`}>
+      <Td
+        align="right"
+        mono
+        className={`font-medium border-r border-term-line ${priceFlash}`}
+        style={{ backgroundColor: signFillBg(sr.pricePct), color: signFillFg(sr.pricePct) }}
+      >
         {fmtPct(sr.pricePct)}
       </Td>
       <Td align="right" mono className="text-term-edge">
@@ -285,7 +331,7 @@ function AssetRow({
 
   return (
     <React.Fragment>
-      <tr className={`border-b border-term-line ${zebra ? "bg-term-zebra" : ""}`}>
+      <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
         <Td>
           <div className="flex items-baseline gap-1">
             <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
@@ -359,6 +405,209 @@ function AssetRow({
   );
 }
 
+// Equities, Commodities and FX never carry rate/spread/yield/duration — those
+// are a bond's shock legs, not a property every instrument has — and
+// Commodities/FX never carry a portfolio weight or contribution either,
+// since no model portfolio (lib/portfolios.ts) holds any commodity or FX
+// position at all, in any of the four allocations. AssetRow/SectorRow above
+// already said as much with an em dash in each of those cells, correctly,
+// but that meant every Equities row carried 4 dead cells and every
+// Commodities/FX row carried 6 of its 7 — a wide, mostly-empty grid repeated
+// for asset classes it never applied to. These two narrower row shapes give
+// each asset class only the columns it actually has data for.
+
+/** Equities row: Instrument, Weight %, a magnitude bar, Price Impact %, P&L
+ *  Contribution %. The bar (same `SignedBar` Factor Attribution uses) reads
+ *  the row's direction and size at a glance, before the exact number —
+ *  filling what was dead card space with something a trader actually scans
+ *  for, not decoration. `maxAbs` is the whole card's scale (SPX's sectors
+ *  included) so a bar's length means the same thing on every row, expanded
+ *  or not. */
+function AssetRowEquity({
+  a,
+  r,
+  w,
+  zebra,
+  isSpx,
+  openSectors,
+  setOpenSectors,
+  hydrated,
+  pinned,
+  onTogglePin,
+  onJumpToDerivation,
+  maxAbs,
+}: {
+  a: Asset;
+  r: EngineResult;
+  w: number | undefined;
+  zebra: boolean;
+  isSpx: boolean;
+  openSectors: boolean;
+  setOpenSectors: (fn: (v: boolean) => boolean) => void;
+  hydrated: boolean;
+  pinned: boolean;
+  onTogglePin: () => void;
+  onJumpToDerivation: () => void;
+  maxAbs: number;
+}) {
+  const ar = r.assets[a.id];
+  const contrib = ar === undefined || w === undefined ? undefined : (w / 100) * ar.pricePct;
+  const priceFlash = useFlash(ar?.pricePct ?? 0, hydrated && ar !== undefined);
+  const contribFlash = useFlash(contrib ?? 0, hydrated && contrib !== undefined);
+  if (!ar) return null;
+
+  return (
+    <React.Fragment>
+      <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+        <Td>
+          <div className="flex items-baseline gap-1">
+            <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
+              <button
+                type="button"
+                onClick={onTogglePin}
+                className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-edge hover:text-term-sub"}`}
+              >
+                {pinned ? "★" : "☆"}
+              </button>
+            </Tooltip>
+            {isSpx ? (
+              <button
+                type="button"
+                onClick={() => setOpenSectors((v) => !v)}
+                className="w-[9px] font-mono text-term-sub hover:text-term-text"
+              >
+                {openSectors ? "-" : "+"}
+              </button>
+            ) : (
+              <span className="w-[9px]" />
+            )}
+            <span className="text-term-sub">{a.label}</span>
+          </div>
+        </Td>
+        <Td align="right" mono className="text-term-muted border-r border-term-line">
+          {w === undefined ? <span className="text-term-edge">&mdash;</span> : w.toFixed(1)}
+        </Td>
+        <Td className="border-r border-term-line p-0">
+          <div className="px-1.5 py-dense">
+            <SignedBar v={ar.pricePct} max={maxAbs} height={7} />
+          </div>
+        </Td>
+        <Td align="right" mono className="border-r border-term-line p-0">
+          <Tooltip content="View derivation" display="flex" className="w-full">
+            <button
+              type="button"
+              onClick={onJumpToDerivation}
+              className={`block w-full px-1.5 py-1 text-right font-medium hover:underline ${signColor(ar.pricePct)} ${priceFlash}`}
+            >
+              {fmtPct(ar.pricePct)}
+            </button>
+          </Tooltip>
+        </Td>
+        <Td align="right" mono className={`${contrib === undefined ? "" : signColor(contrib)} ${contribFlash}`}>
+          {contrib === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(contrib)}
+        </Td>
+      </tr>
+      {isSpx && openSectors
+        ? SECTORS.map((s) => <SectorRowEquity key={s.id} s={s} r={r} hydrated={hydrated} maxAbs={maxAbs} />)
+        : null}
+    </React.Fragment>
+  );
+}
+
+function SectorRowEquity({ s, r, hydrated, maxAbs }: { s: Asset; r: EngineResult; hydrated: boolean; maxAbs: number }) {
+  const sr = r.assets[s.id];
+  const priceFlash = useFlash(sr?.pricePct ?? 0, hydrated && sr !== undefined);
+  if (!sr) return null;
+  return (
+    <tr className="border-b border-term-line bg-term-raised hover:bg-term-line/10">
+      <Td className="pl-6 text-term-muted">{s.label}</Td>
+      <Td align="right" mono className="text-term-edge border-r border-term-line">
+        &mdash;
+      </Td>
+      <Td className="border-r border-term-line p-0">
+        <div className="px-1.5 py-dense">
+          <SignedBar v={sr.pricePct} max={maxAbs} height={7} />
+        </div>
+      </Td>
+      <Td
+        align="right"
+        mono
+        className={`font-medium border-r border-term-line ${priceFlash}`}
+        style={{ backgroundColor: signFillBg(sr.pricePct), color: signFillFg(sr.pricePct) }}
+      >
+        {fmtPct(sr.pricePct)}
+      </Td>
+      <Td align="right" mono className="text-term-edge">
+        &mdash;
+      </Td>
+    </tr>
+  );
+}
+
+/** Commodities/FX row: Instrument, a magnitude bar, Price Impact % — the one
+ *  column either asset class ever has a real value in, now paired with the
+ *  same bar Equities/Factor Attribution use so a 2-column table doesn't read
+ *  as an afterthought. No expand affordance either; unlike SPX, nothing here
+ *  decomposes into sub-instruments. */
+function AssetRowLean({
+  a,
+  r,
+  zebra,
+  hydrated,
+  pinned,
+  onTogglePin,
+  onJumpToDerivation,
+  maxAbs,
+}: {
+  a: Asset;
+  r: EngineResult;
+  zebra: boolean;
+  hydrated: boolean;
+  pinned: boolean;
+  onTogglePin: () => void;
+  onJumpToDerivation: () => void;
+  maxAbs: number;
+}) {
+  const ar = r.assets[a.id];
+  const priceFlash = useFlash(ar?.pricePct ?? 0, hydrated && ar !== undefined);
+  if (!ar) return null;
+
+  return (
+    <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      <Td>
+        <div className="flex items-baseline gap-1">
+          <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
+            <button
+              type="button"
+              onClick={onTogglePin}
+              className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-edge hover:text-term-sub"}`}
+            >
+              {pinned ? "★" : "☆"}
+            </button>
+          </Tooltip>
+          <span className="text-term-sub">{a.label}</span>
+        </div>
+      </Td>
+      <Td className="border-r border-term-line p-0">
+        <div className="px-1.5 py-dense">
+          <SignedBar v={ar.pricePct} max={maxAbs} height={7} />
+        </div>
+      </Td>
+      <Td align="right" mono className="p-0">
+        <Tooltip content="View derivation" display="flex" className="w-full">
+          <button
+            type="button"
+            onClick={onJumpToDerivation}
+            className={`block w-full px-1.5 py-1 text-right font-medium hover:underline ${signColor(ar.pricePct)} ${priceFlash}`}
+          >
+            {fmtPct(ar.pricePct)}
+          </button>
+        </Tooltip>
+      </Td>
+    </tr>
+  );
+}
+
 export default function PnlTab({
   r,
   selected,
@@ -421,42 +670,62 @@ export default function PnlTab({
   }
 
   const pinnedRows = sortRows(TOP_LEVEL_ASSETS.filter((a) => pinnedSet.has(a.id)));
+  const bondRows = sortRows(TOP_LEVEL_ASSETS.filter((a) => a.group === "Bonds"));
+  const equityRows = sortRows(TOP_LEVEL_ASSETS.filter((a) => a.group === "Equities"));
+  const commodityRows = sortRows(TOP_LEVEL_ASSETS.filter((a) => a.group === "Commodities"));
+  const fxRows = sortRows(TOP_LEVEL_ASSETS.filter((a) => a.group === "FX"));
+
+  // Scale/summary figures for the three compact asset-class cards below.
+  // Equities' scale includes SECTORS so a bar's length reads the same whether
+  // or not SPX is expanded — otherwise the whole card's bars would jump scale
+  // the moment a trader opens the one row that can expand.
+  const equityMaxAbs = Math.max(maxAbsPrice(equityRows, r), maxAbsPrice(SECTORS, r));
+  const commodityMaxAbs = maxAbsPrice(commodityRows, r);
+  const fxMaxAbs = maxAbsPrice(fxRows, r);
+  const equityAvg = avgPrice(equityRows, r);
+  const commodityAvg = avgPrice(commodityRows, r);
+  const fxAvg = avgPrice(fxRows, r);
+
+  // The full 8-column header, shared by Pinned and Bonds — the two sections
+  // where every column is potentially real data (Pinned can hold a bond;
+  // Bonds always does). Equities/Commodities/FX get their own narrower
+  // headers below instead of this one with cells they'd never fill in.
+  const fullHead = (
+    <tr className="bg-term-raised">
+      <Th className="w-[210px] border-r border-term-line">Instrument</Th>
+      <Th align="right" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
+        Weight %
+      </Th>
+      <Th align="right" onClick={() => toggleSort("rate")} sortDir={sortDirOf("rate")}>
+        Rate Shock (bp)
+      </Th>
+      <Th align="right" onClick={() => toggleSort("spread")} sortDir={sortDirOf("spread")}>
+        Spread Shock (bp)
+      </Th>
+      <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("yield")} sortDir={sortDirOf("yield")}>
+        Shocked Yield
+      </Th>
+      <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("duration")} sortDir={sortDirOf("duration")}>
+        Duration
+      </Th>
+      <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+        Price Impact %
+      </Th>
+      <Th align="right" onClick={() => toggleSort("contrib")} sortDir={sortDirOf("contrib")}>
+        P&amp;L Contribution %
+      </Th>
+    </tr>
+  );
 
   return (
     <>
       <FactorAttributionPanel r={r} selected={port.id} />
       <Panel title={`Asset Detail — ${port.label} weights`}>
-        <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[11px]">
-          <thead>
-            <tr className="bg-term-raised">
-              <Th className="w-[210px] border-r border-term-line">Instrument</Th>
-              <Th align="right" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
-                Weight %
-              </Th>
-              <Th align="right" onClick={() => toggleSort("rate")} sortDir={sortDirOf("rate")}>
-                Rate Shock (bp)
-              </Th>
-              <Th align="right" onClick={() => toggleSort("spread")} sortDir={sortDirOf("spread")}>
-                Spread Shock (bp)
-              </Th>
-              <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("yield")} sortDir={sortDirOf("yield")}>
-                Shocked Yield
-              </Th>
-              <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("duration")} sortDir={sortDirOf("duration")}>
-                Duration
-              </Th>
-              <Th align="right" className="border-r border-term-line" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
-                Price Impact %
-              </Th>
-              <Th align="right" onClick={() => toggleSort("contrib")} sortDir={sortDirOf("contrib")}>
-                P&amp;L Contribution %
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {pinnedRows.length > 0 ? (
-              <React.Fragment key="pinned">
+        {pinnedRows.length > 0 ? (
+          <div className="overflow-x-auto border-b border-term-edge">
+            <table className="w-full border-collapse text-[11px]">
+              <thead>{fullHead}</thead>
+              <tbody>
                 <tr>
                   <td colSpan={8} className="p-0">
                     <GroupHeader>Pinned</GroupHeader>
@@ -478,19 +747,78 @@ export default function PnlTab({
                     onJumpToDerivation={() => onJumpToDerivation(a.id)}
                   />
                 ))}
-              </React.Fragment>
-            ) : null}
-            {GROUP_ORDER.map((g) => {
-              const rows = sortRows(TOP_LEVEL_ASSETS.filter((a) => a.group === g));
-              return (
-                <React.Fragment key={g}>
-                  <tr>
-                    <td colSpan={8} className="p-0">
-                      <GroupHeader>{g}</GroupHeader>
-                    </td>
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {/* Bonds: the one asset class where all 8 columns are real data —
+            full-width table, unchanged from before. */}
+        <div className="overflow-x-auto border-b border-term-edge">
+          <table className="w-full border-collapse text-[11px]">
+            <thead>{fullHead}</thead>
+            <tbody>
+              <tr>
+                <td colSpan={8} className="p-0">
+                  <GroupHeader>Bonds</GroupHeader>
+                </td>
+              </tr>
+              {bondRows.map((a, ri) => (
+                <AssetRow
+                  key={a.id}
+                  a={a}
+                  r={r}
+                  w={wByAsset[a.id]}
+                  zebra={ri % 2 === 1}
+                  isSpx={false}
+                  openSectors={openSectors}
+                  setOpenSectors={setOpenSectors}
+                  hydrated={hydrated}
+                  pinned={pinnedSet.has(a.id)}
+                  onTogglePin={() => onTogglePin(a.id)}
+                  onJumpToDerivation={() => onJumpToDerivation(a.id)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Equities/Commodities/FX: none of them carry a rate/spread/yield/
+            duration leg, and Commodities/FX never carry a portfolio weight
+            or contribution either — no model portfolio holds either asset
+            class (lib/portfolios.ts). Each gets only the columns it has real
+            values for, in its own bordered card instead of one wide table
+            mostly filled with dashes. The three cards sit in a grid rather
+            than flex-wrap specifically so a CSS grid row's default
+            align-items:stretch makes every card exactly as tall as the
+            tallest one (FX, with the most instruments) — each card's own
+            flex-col layout then pins its footer to that shared bottom edge
+            with `mt-auto`, so a short card (Equities, 4 rows) ends in a
+            deliberate summary bar at the same height as a long one, not a
+            ragged edge of leftover white space. */}
+        <div className="grid grid-cols-1 gap-3 border-b border-term-edge p-2 sm:grid-cols-3">
+          <div className="flex flex-col border border-term-edge bg-term-panel">
+            <GroupHeader>Equities</GroupHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-term-raised">
+                    <Th className="w-[150px] border-r border-term-line">Instrument</Th>
+                    <Th align="right" className="w-[52px] border-r border-term-line" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
+                      Wt %
+                    </Th>
+                    <Th className="w-[60px] border-r border-term-line">Impact</Th>
+                    <Th align="right" className="w-[68px] border-r border-term-line" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+                      Price %
+                    </Th>
+                    <Th align="right" className="w-[68px]" onClick={() => toggleSort("contrib")} sortDir={sortDirOf("contrib")}>
+                      Contrib %
+                    </Th>
                   </tr>
-                  {rows.map((a, ri) => (
-                    <AssetRow
+                </thead>
+                <tbody>
+                  {equityRows.map((a, ri) => (
+                    <AssetRowEquity
                       key={a.id}
                       a={a}
                       r={r}
@@ -503,28 +831,94 @@ export default function PnlTab({
                       pinned={pinnedSet.has(a.id)}
                       onTogglePin={() => onTogglePin(a.id)}
                       onJumpToDerivation={() => onJumpToDerivation(a.id)}
+                      maxAbs={equityMaxAbs}
                     />
                   ))}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-term-edge bg-term-raised">
-              <Td className="font-medium text-term-text">{port.label} total</Td>
-              <Td align="right" mono className="text-term-muted">
-                100.0
-              </Td>
-              <Td /> <Td />
-              <Td className="border-r border-term-line" />
-              <Td className="border-r border-term-line" />
-              <Td className="border-r border-term-line" />
-              <Td align="right" mono className={`font-medium ${signColor(port.pct)}`}>
-                {fmtPct(port.pct)}
-              </Td>
-            </tr>
-          </tfoot>
-        </table>
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
+              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className={`font-mono tnum text-[11px] font-medium ${signColor(equityAvg)}`}>{fmtPct(equityAvg)}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col border border-term-edge bg-term-panel">
+            <GroupHeader>Commodities</GroupHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-term-raised">
+                    <Th className="w-[140px] border-r border-term-line">Instrument</Th>
+                    <Th className="w-[60px] border-r border-term-line">Impact</Th>
+                    <Th align="right" className="w-[68px]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+                      Price %
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commodityRows.map((a, ri) => (
+                    <AssetRowLean
+                      key={a.id}
+                      a={a}
+                      r={r}
+                      zebra={ri % 2 === 1}
+                      hydrated={hydrated}
+                      pinned={pinnedSet.has(a.id)}
+                      onTogglePin={() => onTogglePin(a.id)}
+                      onJumpToDerivation={() => onJumpToDerivation(a.id)}
+                      maxAbs={commodityMaxAbs}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
+              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className={`font-mono tnum text-[11px] font-medium ${signColor(commodityAvg)}`}>{fmtPct(commodityAvg)}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col border border-term-edge bg-term-panel">
+            <GroupHeader>FX</GroupHeader>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-term-raised">
+                    <Th className="w-[140px] border-r border-term-line">Instrument</Th>
+                    <Th className="w-[60px] border-r border-term-line">Impact</Th>
+                    <Th align="right" className="w-[68px]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+                      Price %
+                    </Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fxRows.map((a, ri) => (
+                    <AssetRowLean
+                      key={a.id}
+                      a={a}
+                      r={r}
+                      zebra={ri % 2 === 1}
+                      hydrated={hydrated}
+                      pinned={pinnedSet.has(a.id)}
+                      onTogglePin={() => onTogglePin(a.id)}
+                      onJumpToDerivation={() => onJumpToDerivation(a.id)}
+                      maxAbs={fxMaxAbs}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
+              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className={`font-mono tnum text-[11px] font-medium ${signColor(fxAvg)}`}>{fmtPct(fxAvg)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between bg-term-raised px-2 py-1.5">
+          <span className="text-[11px] font-medium text-term-text">{port.label} total</span>
+          <span className={`font-mono tnum text-[11px] font-medium ${signColor(port.pct)}`}>{fmtPct(port.pct)}</span>
         </div>
       </Panel>
     </>

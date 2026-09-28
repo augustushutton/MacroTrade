@@ -11,14 +11,22 @@ export interface NavEntry {
   navLabel: string;
   /** Full label for the context-bar page title and the browser tab title. */
   pageTitle: string;
+  /** A small, fixed glyph identifying this module in the nav strip — the
+   *  same idea as the icon a dense trading-terminal toolbar puts next to
+   *  every panel/menu entry so a module reads as "a distinct instrument,"
+   *  not just a text label. Plain geometric shapes (not directional arrows
+   *  or up/down triangles), since the app already spends ▲/▼-style shape
+   *  language on P&L direction elsewhere — a nav icon needs to stay neutral
+   *  so it never reads as a stray signal. */
+  navIcon: string;
 }
 
 export const NAV: NavEntry[] = [
-  { href: "/", navLabel: "Builder", pageTitle: "Scenario Builder" },
-  { href: "/pnl", navLabel: "P&L", pageTitle: "P&L Attribution" },
-  { href: "/sensitivity", navLabel: "Sensitivity", pageTitle: "Sensitivity Matrix" },
-  { href: "/derivation", navLabel: "Derivation", pageTitle: "Derivation" },
-  { href: "/compare", navLabel: "Compare", pageTitle: "Scenario Comparison" },
+  { href: "/", navLabel: "Builder", pageTitle: "Scenario Builder", navIcon: "▪" },
+  { href: "/pnl", navLabel: "P&L", pageTitle: "P&L Attribution", navIcon: "◆" },
+  { href: "/sensitivity", navLabel: "Sensitivity", pageTitle: "Sensitivity Matrix", navIcon: "●" },
+  { href: "/derivation", navLabel: "Derivation", pageTitle: "Derivation", navIcon: "▣" },
+  { href: "/compare", navLabel: "Compare", pageTitle: "Scenario Comparison", navIcon: "◇" },
 ];
 
 export function navEntryForPath(pathname: string): NavEntry | undefined {

@@ -23,10 +23,10 @@ const base: ScenarioInput = {
 const STAGE: Record<string, number> = {
   UST2Y: 1, UST5Y: 1, UST10Y: 1, UST30Y: 1, CURVE_2S10S: 1,
   DXY: 2,
-  WTI: 3, NATGAS: 3, GOLD: 3, COPPER: 3, AGS: 3, BRENT: 3.5,
+  WTI: 3, NATGAS: 3, GOLD: 3, COPPER: 3, IRON: 3, AGS: 3, BRENT: 3.5,
   EURUSD: 4, USDJPY: 4, GBPUSD: 4, USDCNY: 4, USDMXN: 4, USDBRL: 4,
   SPX: 5,
-  RTY: 6, EAFE: 6, EM: 6,
+  RTY: 6, EAFE: 6, EM: 6, SEMI: 6, HCARE: 6, TECHX: 6,
   SEC_TECH: 6, SEC_FINS: 6, SEC_ENGY: 6, SEC_UTIL: 6, SEC_INDU: 6, SEC_HLTH: 6, SEC_CONS: 6,
   MBS: 7, IG: 7, HY_BB: 7, HY_BCCC: 7,
 };

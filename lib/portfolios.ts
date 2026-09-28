@@ -12,15 +12,25 @@ export interface Sleeve {
 
 /**
  * A cap-weighted global sleeve with a home bias, which is what the portfolios
- * being modelled actually hold. Sectors are excluded on purpose: they are a
- * decomposition of US Large Cap, not an addition to it, and including them
- * would count the same exposure twice.
+ * being modelled actually hold. The SPX sector DECOMPOSITION (SEC_TECH,
+ * SEC_HLTH, ...) is excluded on purpose: it only re-slices US Large Cap, not
+ * an addition to it, and including it would count the same exposure twice.
+ *
+ * SEMI/HCARE/TECHX are a different thing — three small, real sector tilts the
+ * sleeve holds outright, funded by trimming SPX rather than by grossing the
+ * sleeve above 100: 6pp moves out of US Large Cap (62 -> 56) into the three
+ * tilts at 2pp each, so the four fixed allocations stay exactly as comparable
+ * to each other as before (see the file header) and the sleeve still sums to
+ * 100 without a separate "sum to 100" special case for this sleeve alone.
  */
 export const EQUITY_SLEEVE: Sleeve[] = [
-  { asset: "SPX", w: 62 },
+  { asset: "SPX", w: 56 },
   { asset: "RTY", w: 8 },
   { asset: "EAFE", w: 20 },
   { asset: "EM", w: 10 },
+  { asset: "SEMI", w: 2 },
+  { asset: "HCARE", w: 2 },
+  { asset: "TECHX", w: 2 },
 ];
 
 /**

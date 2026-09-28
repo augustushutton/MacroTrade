@@ -2,7 +2,7 @@
 
 import React from "react";
 import { VAR_GROUPS, VARIABLES, VAR_BY_ID, type Variable, type VarState } from "@/lib/vars";
-import { fmtSigned, signColor, unitLabel } from "@/lib/format";
+import { fmtSigned, signFillBg, signFillFg, unitLabel } from "@/lib/format";
 import { GroupHeader, Tooltip } from "./ui";
 
 // One row per variable: label, base value, shock input flanked by −/+
@@ -140,7 +140,14 @@ function VarRow({
           </button>
         </Tooltip>
       </div>
-      <div className={`text-right font-mono text-[11px] leading-[13px] tnum ${moved ? signColor(d, 10 ** -v.dp / 2) : "text-term-line"}`}>
+      <div
+        className={`px-1 text-right font-mono text-[11px] font-medium leading-[13px] tnum ${moved ? "" : "text-term-line"}`}
+        style={
+          moved
+            ? { backgroundColor: signFillBg(d, 10 ** -v.dp / 2), color: signFillFg(d, 10 ** -v.dp / 2) }
+            : undefined
+        }
+      >
         {deltaBadge(v, d)}
       </div>
     </div>
@@ -219,10 +226,26 @@ function GroupCard({
         right={
           movedCount > 0 ? (
             <>
+              {/* A small filled square ahead of the count — the same
+                  "status dot" a dense terminal toolbar uses to flag state
+                  at a glance before you've even read the number next to
+                  it. */}
               <span className="text-th text-term-text">
+                <span aria-hidden className="mr-1 inline-block h-[7px] w-[7px] bg-info align-[-1px]" />
                 <span className="font-mono tnum font-medium">{movedCount}</span> set
               </span>
-              <button type="button" onClick={() => onResetGroup(x.id)} className="text-th text-term-muted hover:text-down">
+              <button
+                type="button"
+                onClick={() => onResetGroup(x.id)}
+                className="text-th text-term-muted hover:text-down"
+              >
+                {/* Small reset glyph ahead of the label — real function,
+                    dressed as the icon-plus-label toolbar buttons a dense
+                    trading terminal's panel chrome is built from, rather
+                    than a bare text link. */}
+                <span aria-hidden className="mr-0.5">
+                  &#8634;
+                </span>
                 Reset
               </button>
             </>

@@ -73,6 +73,18 @@ export const ASSETS: Asset[] = [
   { id: "EAFE", label: "Intl Developed", group: "Equities", sub: "Developed", kind: "equity" },
   { id: "EM", label: "Emerging Markets", group: "Equities", sub: "Emerging", kind: "equity" },
 
+  // ---- Sector tilts (top-level holdings, NOT the SPX decomposition below) --
+  // These are real satellite positions the portfolio holds outright, funded
+  // out of the US Large Cap sleeve (see EQUITY_SLEEVE in lib/portfolios.ts) —
+  // unlike SEC_TECH/SEC_HLTH just below, which only decompose SPX and carry no
+  // weight of their own. Labelled distinctly from those two sector rows
+  // ("Healthcare"/"Tech" vs. "Health Care"/"Technology") so the two different
+  // things — a read-only breakdown of an index vs. an actual concentrated
+  // position — are never mistaken for each other in the P&L table.
+  { id: "SEMI", label: "Semiconductors", group: "Equities", sub: "Sector Tilts", kind: "equity" },
+  { id: "HCARE", label: "Healthcare", group: "Equities", sub: "Sector Tilts", kind: "equity" },
+  { id: "TECHX", label: "Tech", group: "Equities", sub: "Sector Tilts", kind: "equity" },
+
   // ---- Sectors (children of SPX) ------------------------------------------
   { id: "SEC_TECH", label: "Technology", group: "Equities", sub: "S&P Sectors", kind: "equity", parent: "SPX" },
   { id: "SEC_FINS", label: "Financials", group: "Equities", sub: "S&P Sectors", kind: "equity", parent: "SPX" },
@@ -88,6 +100,7 @@ export const ASSETS: Asset[] = [
   { id: "NATGAS", label: "Natural Gas", group: "Commodities", sub: "Energy", kind: "commodity" },
   { id: "GOLD", label: "Gold", group: "Commodities", sub: "Metals", kind: "commodity" },
   { id: "COPPER", label: "Copper", group: "Commodities", sub: "Metals", kind: "commodity" },
+  { id: "IRON", label: "Iron Ore", group: "Commodities", sub: "Metals", kind: "commodity" },
   { id: "AGS", label: "Agriculture Basket", group: "Commodities", sub: "Agriculture", kind: "commodity" },
 
   // ---- FX ------------------------------------------------------------------

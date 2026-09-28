@@ -485,7 +485,7 @@ export function runScenario(input: ScenarioInput, evalMonths?: number): EngineRe
   }
 
   // ---- 3. Commodities -----------------------------------------------------
-  for (const id of ["WTI", "NATGAS", "GOLD", "COPPER", "AGS"]) {
+  for (const id of ["WTI", "NATGAS", "GOLD", "COPPER", "IRON", "AGS"]) {
     const direct = sumVarBetas(COMMODITY_BETAS[id], state, {
       assetId: id,
       kind: "commodity",

@@ -11,6 +11,14 @@ const config: Config = {
     // Replaces the default scale rather than extending it, so `rounded`,
     // `rounded-sm`, etc. don't compile — no rounded corners anywhere.
     borderRadius: { none: "0" },
+    // Every divider in the app — panel edges, table rules, row separators —
+    // is a bare `border`/`border-t`/`border-b`/etc. utility with no numeric
+    // suffix, so they all resolve to this one DEFAULT value (nothing in the
+    // codebase uses `border-2` or an arbitrary width). Pulled back from 2px
+    // to 1.25px after the 2px + bright-grey combination read as a "white
+    // grid mess" rather than structure — still a hair over the original 1px,
+    // paired with the much darker --term-line/--term-edge in globals.css.
+    borderWidth: { DEFAULT: "1.25px", 0: "0px", 2: "2px", 4: "4px", 8: "8px" },
     extend: {
       // Two named sub-4px steps for dense, tabular UI. Both used to be typed
       // as raw `py-[3px]` / `py-[1px]` arbitrary values, independently, in

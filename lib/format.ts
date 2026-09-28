@@ -97,3 +97,25 @@ export function heatFg(v: number, max: number): string {
   // reads better than near-white on top of a bright up/down tint.
   return a > 0.5 ? "rgb(8 10 14)" : base;
 }
+
+/**
+ * Solid-fill "watchlist" cell treatment, on request — Interactive Brokers'
+ * own watchlist colours its CHANGE column as a full block of solid green or
+ * red, not coloured text on the row's own background, and that block-of-
+ * colour read is a real, distinct convention from signColor's text-only
+ * one. Fixed opacity rather than heatBg's magnitude scaling (there's no
+ * "how big was the move" context here, just direction), but reusing
+ * heatFg's same high-opacity contrast flip so the two fill treatments in
+ * the app stay visually consistent with each other. Returns inline-style
+ * values (not Tailwind classes) since the two colours are picked from the
+ * same runtime --up/--down custom properties as every other colour in the
+ * app, the same reasoning as heatBg/heatFg above.
+ */
+export function signFillBg(v: number, dead = 0.005): string {
+  if (!Number.isFinite(v) || Math.abs(v) < dead) return "transparent";
+  return v > 0 ? "rgb(var(--up) / 0.55)" : "rgb(var(--down) / 0.55)";
+}
+export function signFillFg(v: number, dead = 0.005): string {
+  if (!Number.isFinite(v) || Math.abs(v) < dead) return "rgb(var(--term-sub))";
+  return "rgb(8 10 14)";
+}

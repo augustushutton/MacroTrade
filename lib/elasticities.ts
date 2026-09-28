@@ -332,6 +332,48 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
       { v: "energySupply", b: -0.8 },
     ],
   },
+
+  // ---- Sector tilts (real, weighted positions — see EQUITY_SLEEVE) --------
+  // Same "beta to the index plus its own drivers" shape as the sectors above,
+  // not a new mechanism — these three just also carry a portfolio weight.
+  SEMI: {
+    // The highest beta in the book: semis carry more operating leverage to
+    // the capex/AI cycle than SEC_TECH's broad tech-sector slice of SPX, and
+    // the export-control/China channel (usdcny) is a real, distinct exposure
+    // no other equity here has a direct line to.
+    beta: 1.35,
+    own: [
+      { v: "productivity", b: 1.8 },
+      { v: "earningsRevisions", b: 1.1 },
+      { v: "pmiMfg", b: 1.0 },
+      { v: "usdcny", b: -1.0 },
+    ],
+  },
+  HCARE: {
+    // Defensive, same family as SEC_HLTH (beta 0.72, no direct own drivers):
+    // earnings are demand-inelastic, so the position's own volatility is
+    // mostly wage-cost margin pressure, plus a small flight-to-quality bid
+    // when risk appetite deteriorates (positive VIX beta, the one sector
+    // tilt here that moves the RIGHT way when the market is selling off).
+    beta: 0.72,
+    own: [
+      { v: "wageGrowth", b: -0.4 },
+      { v: "vix", b: 0.5 },
+    ],
+  },
+  TECHX: {
+    // A concentrated growth/duration tilt: higher beta than SPX, a bigger
+    // discount-rate leg than SEC_TECH's (see the UST10Y second-round link
+    // below), and the same productivity/earnings-revisions drivers as the
+    // sector slice, sized for a standalone position rather than a decomposed
+    // share of the index.
+    beta: 1.25,
+    own: [
+      { v: "productivity", b: 1.5 },
+      { v: "earningsRevisions", b: 1.0 },
+      { v: "be10y", b: -0.4 },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -375,6 +417,17 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "unemployment", b: -1.5 },
     { v: "emStress", b: -1.8 },
     { v: "usdcny", b: -1.4 },
+  ],
+  // Same base-metal shape as Copper, weighted even more heavily toward
+  // manufacturing/construction activity and China (steel is what iron ore is
+  // actually for), which is why both its PMI and usdcny betas run a bit
+  // larger than Copper's rather than being copy-pasted from it.
+  IRON: [
+    { v: "gdpGrowth", b: 3.6 },
+    { v: "pmiMfg", b: 4.2 },
+    { v: "unemployment", b: -1.3 },
+    { v: "emStress", b: -2.5 },
+    { v: "usdcny", b: -2.0 },
   ],
   AGS: [
     { v: "energySupply", b: 1.5 },
@@ -460,6 +513,7 @@ export const SECOND_ROUND: SecondRound[] = [
   { from: "DXY", to: "GOLD", channel: "price", unit: "pct", b: -0.85, why: "Dollar leg" },
   { from: "DXY", to: "COPPER", channel: "price", unit: "pct", b: -0.75, why: "Dollar leg" },
   { from: "DXY", to: "AGS", channel: "price", unit: "pct", b: -0.45, why: "Dollar leg" },
+  { from: "DXY", to: "IRON", channel: "price", unit: "pct", b: -0.65, why: "Dollar leg" },
   { from: "DXY", to: "NATGAS", channel: "price", unit: "pct", b: -0.25, why: "Dollar leg, damped by regional pricing" },
   { from: "DXY", to: "EAFE", channel: "price", unit: "pct", b: -0.70, why: "Translation of unhedged developed-market equity into USD" },
   { from: "DXY", to: "EM", channel: "price", unit: "pct", b: -1.35, why: "EM equity carries the dollar twice: translation and funding" },
@@ -478,6 +532,7 @@ export const SECOND_ROUND: SecondRound[] = [
   { from: "WTI", to: "USDMXN", channel: "price", unit: "pct", b: -0.15, why: "Oil exporter terms of trade" },
   { from: "COPPER", to: "USDBRL", channel: "price", unit: "pct", b: -0.12, why: "Commodity exporter terms of trade" },
   { from: "COPPER", to: "SEC_INDU", channel: "price", unit: "pct", b: 0.10, why: "Industrial demand read-through" },
+  { from: "IRON", to: "SEC_INDU", channel: "price", unit: "pct", b: 0.08, why: "Industrial demand read-through" },
 
   // Curve shape into the banks. A parallel shift and an inversion are not the
   // same event for a lender, and only the shape term captures the difference.
@@ -487,6 +542,8 @@ export const SECOND_ROUND: SecondRound[] = [
   // Long-duration equity carries an extra rate term beyond its index beta.
   { from: "UST10Y", to: "SEC_TECH", channel: "price", unit: "pct", b: -0.030, why: "Long-duration cash flows" },
   { from: "UST10Y", to: "SEC_UTIL", channel: "price", unit: "pct", b: -0.045, why: "Bond proxy" },
+  { from: "UST10Y", to: "TECHX", channel: "price", unit: "pct", b: -0.040, why: "Long-duration cash flows, a bigger share of this book than the broad sector slice" },
+  { from: "UST10Y", to: "SEMI", channel: "price", unit: "pct", b: -0.045, why: "Long-duration capex-driven cash flows" },
   { from: "UST10Y", to: "GOLD", channel: "price", unit: "pct", b: -0.020, why: "Carry cost of a zero-coupon asset" },
   { from: "UST10Y", to: "USDJPY", channel: "price", unit: "pct", b: 0.050, why: "Rate differential drives the carry trade" },
 ];

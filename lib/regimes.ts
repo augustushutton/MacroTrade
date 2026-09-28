@@ -67,7 +67,7 @@ export const REGIMES: Regime[] = [
       { assets: ["GOLD"], drivers: ["realRate10y"], m: 0.5, why: "Real-rate beta weakens; haven demand sets the price" },
       { assets: ["GOLD"], drivers: ["vix", "emStress"], m: 2.0, why: "Haven demand" },
       { assets: ["DXY", "USDJPY", "USDCNY", "USDMXN", "USDBRL", "EURUSD", "GBPUSD"], drivers: ["vix", "emStress"], m: 1.9, why: "Dollar funding squeeze" },
-      { assets: ["EM", "RTY"], m: 1.4, why: "Highest-beta equity sleeves lead the drawdown" },
+      { assets: ["EM", "RTY", "SEMI"], m: 1.4, why: "Highest-beta equity sleeves lead the drawdown" },
     ],
   },
   {
@@ -90,7 +90,7 @@ export const REGIMES: Regime[] = [
       { channels: ["earnings"], m: 1.15, why: "Margin compression from input and wage costs" },
       { kinds: ["commodity"], groups: ["inflation"], m: 1.35, why: "Commodities are the transmission mechanism, not a passenger" },
       { assets: ["GOLD"], m: 1.4, why: "Real-asset bid" },
-      { assets: ["SEC_UTIL", "SEC_TECH"], m: 1.3, why: "Long-duration equity is most exposed to the discount-rate move" },
+      { assets: ["SEC_UTIL", "SEC_TECH", "TECHX", "SEMI"], m: 1.3, why: "Long-duration equity is most exposed to the discount-rate move" },
       { assets: ["SEC_ENGY"], m: 1.25, why: "Direct beneficiary of the input-cost shock" },
     ],
   },
@@ -118,7 +118,7 @@ export const REGIMES: Regime[] = [
       { kinds: ["commodity"], groups: ["growth"], m: 1.45, why: "Demand destruction is the price mechanism" },
       { assets: ["GOLD"], m: 1.2, why: "Rate cuts and haven demand both help" },
       { assets: ["SEC_ENGY", "SEC_FINS", "SEC_INDU"], m: 1.3, why: "Cyclical sectors carry the earnings hit" },
-      { assets: ["SEC_HLTH", "SEC_UTIL"], m: 0.7, why: "Defensive earnings streams" },
+      { assets: ["SEC_HLTH", "SEC_UTIL", "HCARE"], m: 0.7, why: "Defensive earnings streams" },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const REGIMES: Regime[] = [
       { channels: ["riskPremium"], m: 0.7, why: "Risk premium is already compressed; little left to give" },
       { kinds: ["credit"], m: 0.6, why: "Spreads are pinned near the cycle floor; the move is asymmetric and this is the tight side" },
       { kinds: ["rate"], m: 0.85, why: "Curve is anchored by a credible policy path" },
-      { assets: ["EM", "RTY"], m: 1.2, why: "High-beta sleeves lead when the dollar and rates are calm" },
+      { assets: ["EM", "RTY", "SEMI"], m: 1.2, why: "High-beta sleeves lead when the dollar and rates are calm" },
     ],
   },
   {

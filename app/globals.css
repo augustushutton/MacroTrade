@@ -25,27 +25,164 @@
 }
 
 .dark {
-  --term-bg: 22 24 29;      /* #16181D */
-  --term-panel: 28 30 36;   /* #1C1E24 */
-  --term-raised: 32 35 43;  /* marginal step off panel, for header rows only */
-  --term-zebra: 24 26 32;   /* #181A20, alternate row shade */
-  --term-input: 18 20 24;   /* #121418, recessed field bg — darker than panel */
-  --term-line: 42 46 57;    /* #2A2E39 */
-  --term-edge: 42 46 57;    /* one border colour throughout, per spec */
+  /* Without this, the browser has no idea the page is dark and assumes
+     "light" for anything it renders natively — which for `<input
+     type="number">` on Chromium means the editable region paints a white
+     UA background UNDERNEATH the author background-color, regardless of
+     `appearance: none` or an explicit `bg-term-input`. This was the actual
+     cause of every numeric input rendering as a solid white box even
+     though getComputedStyle correctly reported black — the CSS was right,
+     the browser's native paint was overriding it a layer below CSS. */
+  color-scheme: dark;
+  /* Widened again on request ("more structure, more contrast, more
+     geometric appeal") — same hue family, same near-black floor, just a
+     clearer step between each layer than the previous, very compressed
+     pass. The old values (panel 8/9/11, raised 13/14/17) put four
+     structural layers within an 11-point range of each other, which reads
+     as "everything is the same dark colour" rather than as a legible
+     stack of surfaces — widening the ladder is what actually gives a
+     panel-on-panel-on-bar hierarchy its shape, not just the bevels sitting
+     on top of it. --term-input stays literal black: it's the recessed
+     field background, the one place "darker than everything else" is
+     exactly the intent. */
+  --term-bg: 3 4 5;         /* #030405 */
+  --term-panel: 12 13 16;   /* #0C0D10 */
+  --term-raised: 24 26 31;  /* #181A1F — clearly a step above panel now */
+  --term-zebra: 6 7 9;      /* alternate row shade */
+  --term-input: 0 0 0;      /* recessed field bg — literal black */
+  /* Pulled back twice after overshooting toward "white grid mess" — this is
+     a gentle lift off the original dark charcoal (42 46 57), not a jump to
+     a visible mid-grey. A divider should read as structure the eye barely
+     registers, not as a line competing with the data it's separating. */
+  --term-line: 62 67 80;   /* #3E4350 */
+  --term-edge: 62 67 80;   /* one border colour throughout, per spec */
 
-  /* Text hierarchy, three steps, applied consistently:
+  /* Text hierarchy, three steps, applied consistently — term-text taken to
+     pure white for the steepest possible contrast against the near-black
+     ground above; term-sub/term-muted nudged up the same direction so the
+     three-step spacing stays even:
      term-text  — primary values: P&L figures, selected rows.
      term-sub   — row labels, instrument names, body copy.
      term-muted — column headers, captions, static context values. */
-  --term-muted: 130 138 154; /* #828A9A */
-  --term-sub: 168 176 190;
-  --term-text: 220 224 232;  /* #DCE0E8 */
+  --term-muted: 176 183 196; /* #B0B7C4 */
+  --term-sub: 214 220 230;
+  --term-text: 255 255 255;  /* pure white */
 
-  /* Dull, desaturated signal colours — no neon. */
-  --up: 62 155 112;    /* #3E9B70 */
-  --down: 199 74 74;   /* #C74A4A */
+  /* Signal colours: darker AND more saturated this round, on request — not
+     just dimmer versions of the last pass but a deeper, richer red/green
+     (more chroma, not more grey) so they read as stronger against the
+     near-black ground and the now-white body text, while still sitting
+     clearly darker than either. */
+  --up: 20 110 62;     /* #146E3E, deep saturated green */
+  --down: 150 28 28;   /* #961C1C, deep saturated red */
   --warn: 185 138 62;
   --info: 43 108 176;  /* #2B6CB0, flat muted blue for selection/focus */
+}
+
+/* Depth, on request — a fifth pass correcting course: the previous rounds'
+   soft multi-stop gradients and blurred ambient drop-shadows were reading
+   as generic "modern SaaS card" polish (soft glow, glassy sheen) rather
+   than an actual instrument's chrome — the thing this app has been asked
+   to look like (IB TWS classic, hard retro) doesn't glow. Real Windows/Java
+   Swing-era 3D chrome is built from flat, un-gradiented fills and crisp,
+   zero-blur bevel lines — a light step and a dark step, no falloff between
+   them. Every rule below drops background-image gradients entirely and
+   drops box-shadow blur radii to 0: depth now comes only from flat colour
+   plus hard-edged bevel, which is what actually reads as "hardware" instead
+   of "CSS effect." */
+@layer components {
+  /* Bordered panels (Panel, VarForm's wrapper, PresetBar — anything built
+     from the same "border-term-edge + bg-term-panel" pair) stay a flat
+     fill — no gradient — with only a hairline top highlight, zero blur.
+     Separation from the page comes from the two-tone bevel border below,
+     not from a drop shadow; nested trays in a real trading terminal are
+     flush against each other, not floating on a soft shadow. The compound
+     selector keeps this off things that merely share the panel background
+     without being a card — TopNav's header bar, a sticky table row —
+     since neither also carries border-term-edge. */
+  .border-term-edge.bg-term-panel {
+    position: relative;
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.07);
+  }
+
+  /* Corner brackets — a pair of small L-marks standing clear of the panel's
+     opposite corners, on request for more "geometric appeal": the
+     instrument-panel/drafting-drawing convention for "this is a precisely
+     bounded region," not decoration borrowed from a template. Pure CSS on
+     the same compound selector, so every panel/ticket picks it up with no
+     component change; `position: relative` above gives these something to
+     anchor to without disturbing any existing absolutely-positioned child,
+     which all already have their own closer `relative` wrapper (SignedBar,
+     Select's chevron, the sensitivity heatmap's centre rule). Offset 3px
+     outside the border — enough of a gap to read as a separate mark rather
+     than just thickening the corner pixel, but still inside the 8px gutter
+     (VarForm's gap-2) between stacked panels, so it never collides with a
+     neighbour's own bracket. */
+  .border-term-edge.bg-term-panel::before,
+  .border-term-edge.bg-term-panel::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    pointer-events: none;
+  }
+  .border-term-edge.bg-term-panel::before {
+    top: -3px;
+    left: -3px;
+    border-top: 1.25px solid rgb(var(--term-sub) / 0.7);
+    border-left: 1.25px solid rgb(var(--term-sub) / 0.7);
+  }
+  .border-term-edge.bg-term-panel::after {
+    bottom: -3px;
+    right: -3px;
+    border-bottom: 1.25px solid rgb(var(--term-sub) / 0.7);
+    border-right: 1.25px solid rgb(var(--term-sub) / 0.7);
+  }
+
+  /* Every "raised" surface — panel headers, GroupHeader bars, the stepper
+     buttons in VarForm, a SignedBar's track — is a flat fill with a hard
+     top-lit / bottom-shadowed hairline pair, zero blur: the classic
+     "button face" bevel, not a glossy sheen. One rule, because it's one
+     visual idea applied everywhere the raised token already is. */
+  .bg-term-raised {
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.22),
+      inset 0 -1px 0 0 rgb(0 0 0 / 0.8);
+  }
+
+  /* Recessed fields — VarForm's numeric inputs, the delivery-path preview —
+     get the inverse hard bevel: a dark top/left corner and a faint light
+     bottom/right corner, zero blur, exactly inverted from the raised
+     button's bevel above — the standard Windows/Swing "sunken field"
+     convention, not a soft modern inset shadow. */
+  .bg-term-input {
+    box-shadow:
+      inset 1px 1px 0 0 rgb(0 0 0 / 0.9),
+      inset -1px -1px 0 0 rgb(255 255 255 / 0.05);
+  }
+}
+
+/* Unlayered (like .dark above) so it beats the .border-term-edge utility's
+   flat border-color — Tailwind's layer order puts "utilities" above
+   "components", so a components-layer override here would silently lose.
+   This two-tone bevel border is the main thing selling "hardware, not
+   glow": a hard light edge top/left, a hard dark edge bottom/right — the
+   literal outset-button convention. Raised controls get the strong version
+   (what makes a toolbar button read as pressable); the static trays that
+   hold them (Panel/VarForm/PresetBar's own outer frame) get a quieter
+   version of the same two-tone edge, because the window itself is also a
+   physical tray in a real terminal, just calmer than the buttons on it. */
+.border-term-edge.bg-term-raised {
+  border-top-color: rgb(255 255 255 / 0.32);
+  border-left-color: rgb(255 255 255 / 0.2);
+  border-bottom-color: rgb(0 0 0 / 0.85);
+  border-right-color: rgb(0 0 0 / 0.7);
+}
+.border-term-edge.bg-term-panel {
+  border-top-color: rgb(255 255 255 / 0.13);
+  border-left-color: rgb(255 255 255 / 0.08);
+  border-bottom-color: rgb(0 0 0 / 0.55);
+  border-right-color: rgb(0 0 0 / 0.45);
 }
 
 @layer base {

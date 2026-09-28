@@ -142,18 +142,27 @@ export function Td({
   mono = false,
   className = "",
   colSpan,
+  style,
 }: {
   children?: React.ReactNode;
   align?: "left" | "right" | "center";
   mono?: boolean;
   className?: string;
   colSpan?: number;
+  /** Only for a value picked at runtime from a CSS custom property (e.g.
+   *  signFillBg/heatBg) — a Tailwind class can't express that. Everything
+   *  else stays a className so Tailwind's scanner can see it in source. */
+  style?: React.CSSProperties;
 }) {
   const a = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   // Fixed leading (14px), same reasoning as Th. Padding is dense (3px) 8px
   // per spec — dense rows, no wasted whitespace.
   return (
-    <td colSpan={colSpan} className={`px-2 py-dense leading-[14px] ${a} ${mono ? "font-mono tnum" : ""} ${className}`}>
+    <td
+      colSpan={colSpan}
+      style={style}
+      className={`px-2 py-dense leading-[14px] ${a} ${mono ? "font-mono tnum" : ""} ${className}`}
+    >
       {children}
     </td>
   );
@@ -179,8 +188,21 @@ export function Btn({
         onClick={onClick}
         className={`relative border px-2.5 py-dense text-[11px] font-medium transition-none ${
           active
-            ? "z-10 border-info bg-term-bg text-term-text"
-            : "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+            ? // Pressed-in rather than lit: bg-term-bg already reads as
+              // "sunk to the page," and a hard, zero-blur two-corner inset
+              // (dark top/left, faint light bottom/right — the inverse of
+              // the raised bevel below, the standard Windows/Swing "sunken"
+              // convention) makes that literal instead of a soft modern
+              // inset glow. A 1px downward nudge on the label sells the
+              // same "physically depressed" read a real key gets.
+              "z-10 translate-y-px border-info bg-term-bg text-term-text shadow-[inset_2px_2px_0_0_rgb(0_0_0_/_0.85),inset_-1px_-1px_0_0_rgb(255_255_255_/_0.05)]"
+            : // Raised: bg-term-raised + the global bevel-border rule
+              // already carry the flat fill and two-tone hard edge (see
+              // globals.css) — a Windows/Swing "button face," not a glossy
+              // gradient — so no extra shadow is needed here at all; one
+              // more blurred drop-shadow on top would be exactly the soft
+              // "modern card" effect this pass is removing.
+              "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
         } ${className}`}
       >
         {children}
