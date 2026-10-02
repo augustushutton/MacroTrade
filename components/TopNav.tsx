@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PathSelector, HorizonSelector, PathPreview } from "./Controls";
 import { useScenario } from "@/lib/scenario-context";
 import { NAV, navEntryForPath } from "@/lib/nav";
+import { Btn } from "./ui";
 
 /** Badge mark: a hard-cornered (no rounding) near-black square holding a
  * single open zigzag stroke shaped like an "M" — a stock-chart line, not a
@@ -70,46 +70,17 @@ export default function TopNav() {
         </div>
       </header>
 
-      <nav className="flex items-end border-t border-term-edge bg-term-raised px-2.5">
-        {NAV.map((l) => {
-          const isActive = l.href === active?.href;
-          return (
-            <Link
-              key={l.href}
-              href={l.href}
-              // A literal folder tab, not an underline: the row aligns
-              // every link to its OWN bottom edge (`items-end`), and the
-              // active one simply gets more vertical padding than its
-              // neighbours — so it's physically taller and pokes up past
-              // the row around it with no fixed heights or negative
-              // margins to keep in sync. It also picks up the same
-              // two-tone hard bevel every other raised control in the app
-              // uses (light top/left, dark right) but with NO bottom edge
-              // at all, so it opens straight down into the page-coloured
-              // body it belongs to instead of being boxed in on all four
-              // sides like the inactive links either side of it. That
-              // "taller, and missing its bottom edge" combination is what
-              // actually reads as "this is the tab pulled forward," the
-              // way a physical folder tab works, rather than a coloured
-              // underline competing with the page-title bar above it.
-              className={`flex items-center border px-3 text-th font-semibold uppercase tracking-wide ${
-                isActive
-                  ? "relative z-10 border-b-0 border-term-edge border-t-2 bg-term-panel py-[7px] text-term-text shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.14)]"
-                  : "border-transparent py-1 text-term-muted hover:bg-term-line/20 hover:text-term-sub"
-              }`}
-            >
-              {/* A fixed, neutral glyph per module — TWS puts an icon next
-                  to every panel/menu entry so it reads as a distinct
-                  instrument rather than a text link; not tinted with the
-                  active/muted state colours since it's an identity mark,
-                  not a status one. */}
-              <span aria-hidden className="mr-1.5 text-[9px] text-term-line">
-                {l.navIcon}
-              </span>
-              {l.navLabel}
-            </Link>
-          );
-        })}
+      <nav className="flex items-center border-t border-term-edge bg-term-raised px-2.5 py-1.5">
+        {/* Same segmented-button look as the Path/Horizon controls above
+            (Btn, shared with Controls.tsx's Segment) rather than a folder
+            tab pulled forward into the page below — each route reads as
+            its own separate, self-contained button, contiguous with its
+            neighbours (-ml-px) exactly like Immediate/Linear/S-Curve/... */}
+        {NAV.map((l, i) => (
+          <Btn key={l.href} href={l.href} active={l.href === active?.href} className={i > 0 ? "-ml-px" : ""}>
+            {l.navLabel}
+          </Btn>
+        ))}
       </nav>
     </div>
   );

@@ -104,13 +104,27 @@ export const ASSETS: Asset[] = [
   { id: "AGS", label: "Agriculture Basket", group: "Commodities", sub: "Agriculture", kind: "commodity" },
 
   // ---- FX ------------------------------------------------------------------
-  { id: "DXY", label: "DXY", group: "FX", sub: "Dollar", kind: "fx", fxConvention: "usd-base" },
+  // USD/CAD replaces the old broad dollar index (DXY) as the one latent
+  // dollar factor everything else in this group — and the dollar-priced
+  // commodities and unhedged EAFE/EM equity legs — inherits. It keeps DXY's
+  // old "sub: Dollar" lane rather than sitting with the Majors below: it is
+  // not just another bilateral pair here, it is the pair everything else is
+  // priced off, same structural role DXY held. See lib/elasticities.ts's "FX"
+  // section for the full reasoning, and lib/engine.ts's "2. Dollar" stage for
+  // where it is computed ahead of every other FX pair.
+  { id: "USDCAD", label: "USD/CAD", group: "FX", sub: "Dollar", kind: "fx", fxConvention: "usd-base" },
   { id: "EURUSD", label: "EUR/USD", group: "FX", sub: "Majors", kind: "fx", fxConvention: "usd-quote" },
   { id: "USDJPY", label: "USD/JPY", group: "FX", sub: "Majors", kind: "fx", fxConvention: "usd-base" },
   { id: "GBPUSD", label: "GBP/USD", group: "FX", sub: "Majors", kind: "fx", fxConvention: "usd-quote" },
   { id: "USDCNY", label: "USD/CNY", group: "FX", sub: "Asia", kind: "fx", fxConvention: "usd-base" },
   { id: "USDMXN", label: "USD/MXN", group: "FX", sub: "LatAm", kind: "fx", fxConvention: "usd-base" },
-  { id: "USDBRL", label: "USD/BRL", group: "FX", sub: "LatAm", kind: "fx", fxConvention: "usd-base" },
+  // USD/CHF sits with the Majors, not a regional sub-group — it's the other
+  // G10 safe-haven pair alongside USD/JPY, not an EM currency like the LatAm
+  // pairs above it. See FX_PAIRS in lib/elasticities.ts for the haven-flow
+  // (negative VIX beta) that distinguishes it from USD/MXN's risk-off
+  // behaviour (positive beta — EM currencies sell off, they don't catch a
+  // flight-to-quality bid).
+  { id: "USDCHF", label: "USD/CHF", group: "FX", sub: "Majors", kind: "fx", fxConvention: "usd-base" },
 ];
 
 export const ASSET_BY_ID: Record<string, Asset> = Object.fromEntries(

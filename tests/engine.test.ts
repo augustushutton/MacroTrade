@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SECOND_ROUND, DERIVED_COMMODITY, DERIVED_EQUITY, RATE_BETAS, SPREAD_BETAS, COMMODITY_BETAS, DXY_BETAS, EQUITY_CHANNELS, FX_PAIRS } from "@/lib/elasticities";
+import { SECOND_ROUND, DERIVED_COMMODITY, DERIVED_EQUITY, RATE_BETAS, SPREAD_BETAS, COMMODITY_BETAS, USDCAD_BETAS, EQUITY_CHANNELS, FX_PAIRS } from "@/lib/elasticities";
 import { ASSET_BY_ID, ASSETS } from "@/lib/assets";
 import { VAR_BY_ID, baselineState, collinearityShrink, crossTierShrink, themeShrink } from "@/lib/vars";
 import { saturateMultiplier } from "@/lib/regimes";
-import { factorAttribution, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
+import { cumulativeInflation, factorAttribution, horizonLadder, realReturn, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
 import { PATHS, responseKernel, responseWeight, responseWeightAt, samplePath } from "@/lib/paths";
 import { PORTFOLIOS, portfolioWeights } from "@/lib/portfolios";
 import { PRESETS, presetState } from "@/lib/scenarios";
@@ -22,9 +22,17 @@ const base: ScenarioInput = {
 // a source produced at or before its own stage.
 const STAGE: Record<string, number> = {
   UST2Y: 1, UST5Y: 1, UST10Y: 1, UST30Y: 1, CURVE_2S10S: 1,
-  DXY: 2,
+  USDCAD: 2,
   WTI: 3, NATGAS: 3, GOLD: 3, COPPER: 3, IRON: 3, AGS: 3, BRENT: 3.5,
-  EURUSD: 4, USDJPY: 4, GBPUSD: 4, USDCNY: 4, USDMXN: 4, USDBRL: 4,
+  EURUSD: 4, USDJPY: 4, GBPUSD: 4, USDCNY: 4, USDMXN: 4,
+  // USDCHF reads EURUSD via a SECOND_ROUND link (see lib/elasticities.ts),
+  // not just USDCAD like the other pairs — engine.ts's FX loop (step 4) folds
+  // each pair's result into `sources` as it goes in FX_PAIRS's own object
+  // order (EURUSD is listed before USDCHF there), so USDCHF genuinely does
+  // see a non-stale EURUSD by the time it runs. 4.5 says "still the FX
+  // stage, but strictly after EURUSD" — same device as BRENT: 3.5 above for
+  // WTI/BRENT's own intra-commodity ordering.
+  USDCHF: 4.5,
   SPX: 5,
   RTY: 6, EAFE: 6, EM: 6, SEMI: 6, HCARE: 6, TECHX: 6,
   SEC_TECH: 6, SEC_FINS: 6, SEC_ENGY: 6, SEC_UTIL: 6, SEC_INDU: 6, SEC_HLTH: 6, SEC_CONS: 6,
@@ -54,7 +62,7 @@ describe("coefficient tables", () => {
       ...Object.values(RATE_BETAS).flat(),
       ...Object.values(SPREAD_BETAS).flat(),
       ...Object.values(COMMODITY_BETAS).flat(),
-      ...DXY_BETAS,
+      ...USDCAD_BETAS,
       ...Object.values(FX_PAIRS).flatMap((p) => p.own),
       ...Object.values(DERIVED_EQUITY).flatMap((d) => d.own),
       ...Object.values(DERIVED_COMMODITY).flatMap((d) => d.own),
@@ -76,7 +84,7 @@ describe("coefficient tables", () => {
       const covered =
         RATE_BETAS[a.id] || SPREAD_BETAS[a.id] || COMMODITY_BETAS[a.id] ||
         DERIVED_EQUITY[a.id] || DERIVED_COMMODITY[a.id] || FX_PAIRS[a.id] ||
-        EQUITY_CHANNELS[a.id] || a.id === "DXY";
+        EQUITY_CHANNELS[a.id] || a.id === "USDCAD";
       expect(covered, `${a.id} has no elasticity source`).toBeTruthy();
     }
   });
@@ -113,7 +121,7 @@ describe("directional sanity", () => {
   });
 
   it("widens credit and drops equity in a stress state", () => {
-    const r = runScenario({ ...base, state: { ...base.state, vix: 42, hyBCCCSpread: 950, igSpread: 190, fciComposite: 1.6 } });
+    const r = runScenario({ ...base, state: { ...base.state, vix: 42, hyBCCCSpread: 950, igSpread: 190 } });
     expect(r.regime.active).toBe("financial_stress");
     expect(r.assets.SPX.pricePct).toBeLessThan(0);
     expect(r.assets.HY_BCCC.pricePct).toBeLessThan(r.assets.IG.pricePct);
@@ -157,6 +165,28 @@ describe("pins", () => {
     expect(mult.pinned).toBe(true);
     expect(mult.value).toBeCloseTo((-2 / 20.5) * 100, 6);
   });
+
+  it("pins one Treasury tenor to a dragged yield-curve level, leaving the others modelled", () => {
+    // UST10Y base is 4.20 (realRate10y.base + be10y.base, by construction —
+    // see lib/vars.ts). Dragging it to 4.70 should print exactly +50bp,
+    // independent of whatever RATE_BETAS would otherwise have implied.
+    const r = runScenario({ ...base, state: { ...base.state, ust10yYield: 4.7 } });
+    expect(r.assets.UST10Y.pinned).toBe(true);
+    expect(r.assets.UST10Y.yieldBp).toBeCloseTo(50, 6);
+
+    // A macro shock that WOULD otherwise move UST10Y is fully overridden once
+    // pinned — the pin replaces the factor model's estimate, it doesn't add
+    // to it.
+    const r2 = runScenario({ ...base, state: { ...base.state, fedFunds: 5.5, ust10yYield: 4.7 } });
+    expect(r2.assets.UST10Y.yieldBp).toBeCloseTo(50, 6);
+
+    // The three untouched tenors stay fully macro-modelled (unpinned).
+    const r3 = runScenario({ ...base, state: { ...base.state, fedFunds: 5.5, ust10yYield: 4.7 } });
+    expect(r3.assets.UST2Y.pinned).toBe(false);
+    expect(r3.assets.UST5Y.pinned).toBe(false);
+    expect(r3.assets.UST30Y.pinned).toBe(false);
+    expect(r3.assets.UST2Y.yieldBp).not.toBeCloseTo(0, 6);
+  });
 });
 
 describe("time paths", () => {
@@ -192,7 +222,7 @@ describe("time paths", () => {
   });
 
   it("gives back more of a risk-premium shock at two years than at three months", () => {
-    const st = { ...base.state, vix: 40, fciComposite: 1.8 };
+    const st = { ...base.state, vix: 40 };
     const rp = (h: 3 | 24) =>
       runScenario({ ...base, state: st, horizon: h }).assets.SPX.channels.find(
         (c) => c.channel === "riskPremium",
@@ -418,7 +448,7 @@ describe("cross-tier merge", () => {
     // alone. Adding an explicit VIX shock adds a second, agreeing view of the
     // same event, so the tier must widen further but by less than the sum.
     const eqOnly = { ...baselineState(), earningsRevisions: -30, gdpGrowth: -1.0 };
-    const both = { ...eqOnly, vix: 40, fciComposite: 2.2 };
+    const both = { ...eqOnly, vix: 40 };
     const s1 = runScenario({ ...base, state: eqOnly }).assets.HY_BCCC.spreadBp!;
     const s2 = runScenario({ ...base, state: both }).assets.HY_BCCC.spreadBp!;
     expect(s2).toBeGreaterThan(s1);
@@ -474,7 +504,7 @@ describe("compounding", () => {
     const st = {
       ...baselineState(),
       vix: 80, igSpread: 400, hyBBSpread: 900, hyBCCCSpread: 2200,
-      fciComposite: 5, gdpGrowth: -8, unemployment: 14, earningsRevisions: -60, earningsGrowth: -35,
+      gdpGrowth: -8, unemployment: 14, earningsRevisions: -60, earningsGrowth: -35,
     };
     const r = runScenario({ ...base, state: st });
     for (const a of Object.values(r.assets)) expect(a.pricePct).toBeGreaterThan(-100);
@@ -570,3 +600,71 @@ describe("factor attribution", () => {
     expect(Math.abs(attrib[0]!.contribPct) / total).toBeGreaterThan(0.5);
   });
 });
+
+describe("cumulativeInflation", () => {
+  it("is zero over any horizon at a zero rate", () => {
+    expect(cumulativeInflation(0, 24)).toBeCloseTo(0, 9);
+  });
+
+  it("compounds the annual rate over the horizon's own fraction of a year", () => {
+    expect(cumulativeInflation(4, 12)).toBeCloseTo(4, 9);
+    expect(cumulativeInflation(4, 24)).toBeCloseTo((1.04 * 1.04 - 1) * 100, 9);
+  });
+
+  it("is what realReturn divides the nominal leg by", () => {
+    const nominalPct = 8;
+    const cpi = 3.5;
+    const months = 18;
+    const viaHelper = ((1 + nominalPct / 100) / (1 + cumulativeInflation(cpi, months) / 100) - 1) * 100;
+    expect(realReturn(nominalPct, cpi, months)).toBeCloseTo(viaHelper, 9);
+  });
+});
+
+describe("realReturn", () => {
+  it("equals nominal when the deflator is zero", () => {
+    expect(realReturn(6.3, 0, 12)).toBeCloseTo(6.3, 9);
+  });
+
+  it("matches the Fisher-equation deflation by hand", () => {
+    // (1.10 / 1.05) - 1, as a percent.
+    expect(realReturn(10, 5, 12)).toBeCloseTo(4.761904761904767, 9);
+  });
+
+  it("only compounds the annual rate over the horizon's own fraction of a year", () => {
+    // A 6-month horizon should deflate by sqrt(1 + annual), not by the full
+    // annual rate outright.
+    const sixMonth = realReturn(0, 4, 6);
+    const oneYear = realReturn(0, 4, 12);
+    expect(sixMonth).toBeGreaterThan(oneYear); // less erosion at half the horizon
+    expect(sixMonth).toBeCloseTo((1 / Math.sqrt(1.04) - 1) * 100, 9);
+  });
+
+  it("shows erosion (a negative real return) on a flat nominal return whenever CPI is positive", () => {
+    expect(realReturn(0, 2.8, 12)).toBeLessThan(0);
+  });
+});
+
+describe("horizonLadder", () => {
+  it("every rung's realPct matches realReturn on that rung's own nominal pct and horizon", () => {
+    const st = { ...base.state, fedFunds: 5.5, cpiHeadline: 5.0 };
+    const ladder = horizonLadder({ ...base, state: st }, "p6040");
+    expect(ladder).toHaveLength(6);
+    for (const rung of ladder) {
+      expect(rung.cpiUsed).toBe(5.0);
+      expect(rung.realPct).toBeCloseTo(realReturn(rung.pct, 5.0, rung.horizon), 9);
+    }
+  });
+
+  it("deflates by the scenario's own CPI even when CPI itself was not the thing shocked", () => {
+    // At baseline nothing moves, so nominal is flat (0%) at every horizon —
+    // but the model's baseline Headline CPI YoY is still 2.8%, and "what did
+    // this do net of inflation" is a real question even for a do-nothing
+    // scenario, so real should still read negative here.
+    const ladder = horizonLadder(base, "p6040");
+    for (const rung of ladder) {
+      expect(rung.pct).toBeCloseTo(0, 9);
+      expect(rung.realPct).toBeLessThan(0);
+    }
+  });
+});
+

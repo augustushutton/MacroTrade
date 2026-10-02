@@ -3,10 +3,10 @@
 import React from "react";
 import { runScenario, type ScenarioInput } from "@/lib/engine";
 import { baselineState, VAR_GROUPS, VARIABLES, VAR_BY_ID, type VarState } from "@/lib/vars";
-import { presetState, PRESET_GROUPS, type Preset } from "@/lib/scenarios";
+import { presetState, type Preset } from "@/lib/scenarios";
 import type { Horizon, PathShape } from "@/lib/paths";
 import { DEFAULT_NOTIONAL } from "@/lib/portfolios";
-import { toDelta, fromDelta, loadSession, saveSession } from "@/lib/storage";
+import { toDelta, fromDelta, loadSession, saveSession, type ScenarioSnapshot } from "@/lib/storage";
 import { PRESET_DEFAULT_OPEN } from "@/components/PresetBar";
 import type { GroupTabId } from "@/components/NarrativeTab";
 import type { SortKey, SortDir } from "@/components/PnlTab";
@@ -33,6 +33,15 @@ interface ScenarioContextValue {
   setPortfolioId: (id: string) => void;
   presetId: string | null;
   applyPreset: (p: Preset) => void;
+  /** The saved-scenario id (lib/storage.ts's SavedScenario) currently loaded
+   *  on screen, if any — mutually exclusive with `presetId`, the same way a
+   *  user's own saved scenario and the built-in library are two different
+   *  shelves that can't both be "the thing on screen" at once. Not persisted
+   *  across a reload (unlike the state itself): a minor, deliberate gap —
+   *  the values survive, only the "which saved scenario is this" highlight
+   *  resets to none. */
+  customScenarioId: string | null;
+  applySnapshot: (snap: ScenarioSnapshot, id?: string | null) => void;
   resetAll: () => void;
   resetGroup: (group: string) => void;
   query: string;
@@ -57,8 +66,6 @@ interface ScenarioContextValue {
   // above already did for VarForm.
   presetOpen: Record<string, boolean>;
   setPresetOpen: (g: string, v: boolean) => void;
-  compareGroup: string;
-  setCompareGroup: (g: string) => void;
   narrativeGroupTab: GroupTabId;
   setNarrativeGroupTab: (g: GroupTabId) => void;
   sensitivityXVar: string;
@@ -83,6 +90,7 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
   const [notional, setNotional] = React.useState<number>(DEFAULT_NOTIONAL);
   const [portfolioId, setPortfolioId] = React.useState<string>("p6040");
   const [presetId, setPresetId] = React.useState<string | null>(null);
+  const [customScenarioId, setCustomScenarioId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState<string>("");
   const [open, setOpenState] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(VAR_GROUPS.map((g) => [g.id, g.defaultOpen])),
@@ -96,8 +104,7 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
   // Per-view UI state, lifted here for the reasons noted on
   // ScenarioContextValue above (survive route navigation).
   const [presetOpen, setPresetOpenState] = React.useState<Record<string, boolean>>(PRESET_DEFAULT_OPEN);
-  const [compareGroup, setCompareGroup] = React.useState<string>(PRESET_GROUPS[0]);
-  const [narrativeGroupTab, setNarrativeGroupTab] = React.useState<GroupTabId>("equities");
+  const [narrativeGroupTab, setNarrativeGroupTab] = React.useState<GroupTabId>("indices");
   const [sensitivityXVar, setSensitivityXVar] = React.useState<string>("");
   const [sensitivityYVar, setSensitivityYVar] = React.useState<string>("");
   const [pnlOpenSectors, setPnlOpenSectors] = React.useState(false);
@@ -126,7 +133,6 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       setOpenState((o) => ({ ...o, ...s.open }));
       setPinned(s.pinned);
       if (s.presetOpen) setPresetOpenState((o) => ({ ...o, ...s.presetOpen }));
-      if (s.compareGroup) setCompareGroup(s.compareGroup);
       if (s.narrativeGroupTab) setNarrativeGroupTab(s.narrativeGroupTab);
       if (s.sensitivityXVar) setSensitivityXVar(s.sensitivityXVar);
       if (s.sensitivityYVar) setSensitivityYVar(s.sensitivityYVar);
@@ -154,7 +160,6 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       open,
       pinned,
       presetOpen,
-      compareGroup,
       narrativeGroupTab,
       sensitivityXVar,
       sensitivityYVar,
@@ -174,7 +179,6 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     open,
     pinned,
     presetOpen,
-    compareGroup,
     narrativeGroupTab,
     sensitivityXVar,
     sensitivityYVar,
@@ -197,6 +201,7 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
 
   function setVar(id: string, v: number) {
     setPresetId(null);
+    setCustomScenarioId(null);
     setState((s) => ({ ...s, [id]: v }));
   }
 
@@ -205,6 +210,7 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     setPath(p.path);
     setHorizon(p.horizon);
     setPresetId(p.id);
+    setCustomScenarioId(null);
     setOpenState((o) => {
       const next = { ...o };
       for (const id of Object.keys(p.set)) {
@@ -215,13 +221,31 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  /** Loads a saved scenario (lib/storage.ts's SavedScenario, via its latest
+   *  ScenarioSnapshot) the same way applyPreset loads a built-in one, just
+   *  from a user's own shelf instead of the library — `id` is the saved
+   *  record's id so the list can highlight which one is on screen, or
+   *  omitted for a one-off snapshot (e.g. a future "restore version") that
+   *  isn't itself a named, listed scenario. */
+  function applySnapshot(snap: ScenarioSnapshot, id: string | null = null) {
+    setState(snap.state);
+    setPath(snap.path);
+    setHorizon(snap.horizon);
+    setSteps(snap.steps);
+    setNotional(snap.notional);
+    setPresetId(null);
+    setCustomScenarioId(id);
+  }
+
   function resetAll() {
     setState(baselineState());
     setPresetId(null);
+    setCustomScenarioId(null);
   }
 
   function resetGroup(group: string) {
     setPresetId(null);
+    setCustomScenarioId(null);
     setState((s) => {
       const next = { ...s };
       for (const v of VARIABLES) if (v.group === group) next[v.id] = v.base;
@@ -236,6 +260,7 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     setPath: (p: PathShape) => {
       setPath(p);
       setPresetId(null);
+      setCustomScenarioId(null);
     },
     horizon,
     setHorizon,
@@ -247,6 +272,8 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     setPortfolioId,
     presetId,
     applyPreset,
+    customScenarioId,
+    applySnapshot,
     resetAll,
     resetGroup,
     query,
@@ -263,8 +290,6 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
     hydrated,
     presetOpen,
     setPresetOpen: (g: string, v: boolean) => setPresetOpenState((o) => ({ ...o, [g]: v })),
-    compareGroup,
-    setCompareGroup,
     narrativeGroupTab,
     setNarrativeGroupTab,
     sensitivityXVar,

@@ -30,7 +30,7 @@ export default function PnlPage() {
 
   return (
     <div>
-      <div className="mb-2">
+      <div className="mb-0">
         <PortfolioSummary
           r={result}
           selected={portfolioId}

@@ -84,15 +84,38 @@ export function loadAll(): SavedScenario[] {
   return safeParse(window.localStorage.getItem(KEY)).sort((a, b) => b.updated - a.updated);
 }
 
+/** Fired on `window` every time the saved-scenario list actually changes on
+ *  disk — save, rename, delete, a version pushed. SavedScenarios.tsx doesn't
+ *  need this (it already updates its own list state directly, inline with
+ *  the action that caused the change), but anything else that also reads
+ *  loadAll() — ScenarioComparisonChart, say — has no other way to learn a
+ *  change happened on a component tree it shares no React state with. A
+ *  plain DOM event is the one mechanism that reaches every listener without
+ *  this still-framework-agnostic module importing React, and without
+ *  SavedScenarios having to know who else is listening. (The native
+ *  `storage` event doesn't cover this: it only fires in OTHER tabs, never
+ *  the tab that made the write.) */
+const CHANGE_EVENT = "msp:scenarios-changed";
+
 function writeAll(list: SavedScenario[]): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(KEY, JSON.stringify(list.slice(0, LIMIT)));
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch {
     // Quota exhausted. Dropping the write is preferable to throwing inside a
     // click handler and taking the tree down; the caller re-reads and sees the
-    // save did not land.
+    // save did not land. No event either — nothing actually changed.
   }
+}
+
+/** Subscribes to every future saved-scenario change; returns an unsubscribe
+ *  function, so a component can call this straight from a `useEffect` and
+ *  return its result as the cleanup. */
+export function onScenariosChanged(fn: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(CHANGE_EVENT, fn);
+  return () => window.removeEventListener(CHANGE_EVENT, fn);
 }
 
 export function makeId(seed: number): string {
@@ -241,7 +264,6 @@ export interface SessionState {
   // itself rather than as component-local state). All optional so a session
   // saved before these existed still loads cleanly.
   presetOpen?: Record<string, boolean>;
-  compareGroup?: string;
   narrativeGroupTab?: GroupTabId;
   sensitivityXVar?: string;
   sensitivityYVar?: string;
@@ -250,7 +272,14 @@ export interface SessionState {
   pnlSortDir?: SortDir;
 }
 
-const NARRATIVE_GROUP_TABS = new Set(["equities", "fx", "bonds", "commodities"]);
+const NARRATIVE_GROUP_TABS = new Set([
+  "indices",
+  "sectors",
+  "fx",
+  "corporate-bonds",
+  "government-bonds",
+  "commodities",
+]);
 const PNL_SORT_KEYS = new Set(["w", "rate", "spread", "yield", "duration", "price", "contrib"]);
 
 export function saveSession(s: SessionState): void {
@@ -281,7 +310,6 @@ export function loadSession(): SessionState | null {
       open: p.open && typeof p.open === "object" ? p.open : {},
       pinned: Array.isArray(p.pinned) ? p.pinned.filter((x: unknown) => typeof x === "string") : [],
       presetOpen: p.presetOpen && typeof p.presetOpen === "object" ? p.presetOpen : undefined,
-      compareGroup: typeof p.compareGroup === "string" ? p.compareGroup : undefined,
       narrativeGroupTab: NARRATIVE_GROUP_TABS.has(p.narrativeGroupTab) ? (p.narrativeGroupTab as GroupTabId) : undefined,
       sensitivityXVar: typeof p.sensitivityXVar === "string" ? p.sensitivityXVar : undefined,
       sensitivityYVar: typeof p.sensitivityYVar === "string" ? p.sensitivityYVar : undefined,

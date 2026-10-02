@@ -51,7 +51,6 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -10 },
     { v: "realRate10y", b: 14 },
-    { v: "emStress", b: -6 },
   ],
   UST5Y: [
     { v: "energySupply", b: 5 },
@@ -73,10 +72,23 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 20 },
-    { v: "emStress", b: -7 },
     { v: "deficitGdp", b: 5 },
     { v: "debtGdp", b: 3 },
+    // Education Investment: see the term-premium note above UST10Y below —
+    // same mechanism, smaller weight at the shorter end of the curve.
+    { v: "eduInvestment", b: 1 },
   ],
+  // Education Investment enters UST5Y/10Y/30Y (never UST2Y — a financing
+  // decision moves the term premium the front end barely carries) at roughly
+  // a fifth of deficitGdp's own beta at each tenor. That fraction is doing
+  // two jobs at once: it is a smaller near-term fiscal impulse than the
+  // headline deficit already prices (this is one program, not the whole
+  // budget — sizing it at deficitGdp's full beta would double-count against
+  // whatever the reader has separately set there), and it nets a real
+  // financing-cost-today against a growth-dividend-tomorrow that a forward-
+  // looking bond market partially discounts against each other. The
+  // corresponding growth benefit shows up on the other side of the ledger,
+  // in EQUITY_CHANNELS.SPX and DERIVED_EQUITY below.
   UST10Y: [
     { v: "energySupply", b: 5 },
     { v: "fedFunds", b: 45 },
@@ -97,11 +109,10 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 25 },
-    { v: "emStress", b: -8 },
     { v: "igSpread", b: -5 },
     { v: "deficitGdp", b: 9 },
     { v: "debtGdp", b: 6 },
-    { v: "fciComposite", b: 3 },
+    { v: "eduInvestment", b: 2 },
   ],
   UST30Y: [
     { v: "energySupply", b: 6 },
@@ -121,10 +132,10 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "productivity", b: -8 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 26 },
-    { v: "emStress", b: -9 },
     { v: "deficitGdp", b: 14 },
     { v: "debtGdp", b: 9 },
     { v: "currentAccount", b: -5 },
+    { v: "eduInvestment", b: 3 },
   ],
 };
 
@@ -139,41 +150,34 @@ export const RATE_BETAS: Record<string, Beta[]> = {
 export const SPREAD_BETAS: Record<string, Beta[]> = {
   MBS: [
     { v: "vix", b: 6 },
-    { v: "fciComposite", b: 5 },
     { v: "qtPace", b: 4 },
     { v: "fedBalanceSheet", b: -6 },
     { v: "unemployment", b: 2 },
   ],
   IG: [
     { v: "vix", b: 9 },
-    { v: "fciComposite", b: 7 },
     { v: "gdpGrowth", b: -5 },
     { v: "unemployment", b: 6 },
     { v: "earningsGrowth", b: -3 },
     { v: "earningsRevisions", b: -2 },
-    { v: "emStress", b: 4 },
     { v: "fedBalanceSheet", b: -4 },
     { v: "pmiMfg", b: -2 },
   ],
   HY_BB: [
     { v: "vix", b: 22 },
-    { v: "fciComposite", b: 16 },
     { v: "gdpGrowth", b: -13 },
     { v: "unemployment", b: 16 },
     { v: "earningsGrowth", b: -9 },
     { v: "earningsRevisions", b: -5 },
-    { v: "emStress", b: 9 },
     { v: "pmiMfg", b: -6 },
     { v: "fedBalanceSheet", b: -8 },
   ],
   HY_BCCC: [
     { v: "vix", b: 52 },
-    { v: "fciComposite", b: 38 },
     { v: "gdpGrowth", b: -32 },
     { v: "unemployment", b: 40 },
     { v: "earningsGrowth", b: -24 },
     { v: "earningsRevisions", b: -12 },
-    { v: "emStress", b: 18 },
     { v: "pmiMfg", b: -14 },
     { v: "fedBalanceSheet", b: -14 },
   ],
@@ -199,6 +203,17 @@ export const SPREAD_PINS: Record<string, string> = {
 // The rate-to-multiple channel is NOT listed here. It arrives through
 // SECOND_ROUND off the computed 10y, so the curve model is the single path from
 // policy to equity valuation and a hike cannot be counted twice.
+//
+// Education Investment (lib/vars.ts) rides along on both the multiple and
+// earnings legs, at roughly 25-35% of Productivity Growth's own beta on each
+// — never the same size, and never copied outright. The fraction stands in
+// for two things a static, single-period model cannot represent directly:
+// the multi-year lag between a spending commitment and the human-capital
+// payoff actually arriving (school years plus a working-life phase-in, not
+// a quarter), and the execution/political-durability risk a forward-looking
+// market prices against a policy input that a realised productivity print
+// does not carry. See lib/vars.ts's eduInvestment entry for the full
+// citation trail (Mankiw-Romer-Weil 1992; Hanushek & Woessmann 2008).
 // ---------------------------------------------------------------------------
 export interface EquityChannels {
   multiple: Beta[];
@@ -211,11 +226,14 @@ export const EQUITY_CHANNELS: Record<string, EquityChannels> = {
     multiple: [
       { v: "be10y", b: -1.1 },
       { v: "vix", b: -2.6 },
-      { v: "fciComposite", b: -2.2 },
       { v: "forwardGuidance", b: -1.4 },
       { v: "fedBalanceSheet", b: 2.0 },
       { v: "qtPace", b: -0.8 },
       { v: "productivity", b: 1.6 },
+      // ~30% of Productivity Growth's own multiple beta — see the Education
+      // Investment note under EQUITY_CHANNELS below for why it is sized this
+      // way rather than copied outright.
+      { v: "eduInvestment", b: 0.5 },
     ],
     earnings: [
       { v: "earningsGrowth", b: 3.6 },
@@ -231,14 +249,13 @@ export const EQUITY_CHANNELS: Record<string, EquityChannels> = {
       { v: "regionalFed", b: 0.7 },
       { v: "termsOfTrade", b: 0.4 },
       { v: "energySupply", b: -0.7 },
+      { v: "eduInvestment", b: 0.4 },
     ],
     riskPremium: [
       { v: "vix", b: -3.2 },
       { v: "igSpread", b: -1.5 },
       { v: "hyBBSpread", b: -1.4 },
       { v: "hyBCCCSpread", b: -1.6 },
-      { v: "emStress", b: -1.1 },
-      { v: "fciComposite", b: -1.3 },
       { v: "debtGdp", b: -0.4 },
       { v: "deficitGdp", b: -0.25 },
     ],
@@ -285,7 +302,6 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
   EM: {
     beta: 1.15,
     own: [
-      { v: "emStress", b: -4.5 },
       { v: "usdcny", b: -1.2 },
       { v: "fedFunds", b: -1.3 },
     ],
@@ -295,6 +311,10 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
     own: [
       { v: "productivity", b: 1.4 },
       { v: "earningsRevisions", b: 0.8 },
+      // The STEM talent pipeline is this sector's most direct line to
+      // education policy of anything in the book — see the Education
+      // Investment note above SEMI below.
+      { v: "eduInvestment", b: 0.4 },
     ],
   },
   SEC_FINS: {
@@ -330,6 +350,13 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
       { v: "cpiHeadline", b: -0.9 },
       { v: "unemployment", b: -1.4 },
       { v: "energySupply", b: -0.8 },
+      // A smaller, more speculative echo of the wageGrowth beta just above:
+      // a better-educated future workforce commands higher long-run wages,
+      // which eventually shows up in consumer spending power — a second,
+      // even-further-off step than the productivity/earnings channel this
+      // variable already carries elsewhere, so it gets the smallest weight
+      // of any beta this variable holds in the book.
+      { v: "eduInvestment", b: 0.15 },
     ],
   },
 
@@ -340,13 +367,18 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
     // The highest beta in the book: semis carry more operating leverage to
     // the capex/AI cycle than SEC_TECH's broad tech-sector slice of SPX, and
     // the export-control/China channel (usdcny) is a real, distinct exposure
-    // no other equity here has a direct line to.
+    // no other equity here has a direct line to. Of everything in this
+    // model, semis lean hardest on a deep STEM talent pipeline, so Education
+    // Investment carries its largest single equity beta right here — still
+    // only ~30% of this row's own productivity beta, per the fractional-
+    // capitalisation logic in lib/vars.ts's eduInvestment entry.
     beta: 1.35,
     own: [
       { v: "productivity", b: 1.8 },
       { v: "earningsRevisions", b: 1.1 },
       { v: "pmiMfg", b: 1.0 },
       { v: "usdcny", b: -1.0 },
+      { v: "eduInvestment", b: 0.55 },
     ],
   },
   HCARE: {
@@ -372,15 +404,16 @@ export const DERIVED_EQUITY: Record<string, DerivedEquity> = {
       { v: "productivity", b: 1.5 },
       { v: "earningsRevisions", b: 1.0 },
       { v: "be10y", b: -0.4 },
+      { v: "eduInvestment", b: 0.45 },
     ],
   },
 };
 
 // ---------------------------------------------------------------------------
 // Commodities. Modelled in percent, driven by demand and by the dollar. The
-// dollar leg is NOT here — it arrives through SECOND_ROUND off the computed DXY
-// so that a dollar shock and a growth shock cannot disagree about which way oil
-// went.
+// dollar leg is NOT here — it arrives through SECOND_ROUND off the computed
+// USD/CAD so that a dollar shock and a growth shock cannot disagree about
+// which way oil went.
 // ---------------------------------------------------------------------------
 export const COMMODITY_BETAS: Record<string, Beta[]> = {
   WTI: [
@@ -390,7 +423,6 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "pmiSvcs", b: 1.1 },
     { v: "unemployment", b: -2.2 },
     { v: "cpiHeadline", b: 2.0 },
-    { v: "emStress", b: -1.5 },
     { v: "termsOfTrade", b: -0.6 },
   ],
   NATGAS: [
@@ -404,7 +436,6 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "realRate10y", b: -3.4 },
     { v: "be10y", b: 1.6 },
     { v: "vix", b: 2.2 },
-    { v: "emStress", b: 1.8 },
     { v: "debtGdp", b: 1.4 },
     { v: "deficitGdp", b: 0.8 },
     { v: "fedBalanceSheet", b: 2.0 },
@@ -415,7 +446,6 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "pmiMfg", b: 3.8 },
     { v: "pmiSvcs", b: 1.0 },
     { v: "unemployment", b: -1.5 },
-    { v: "emStress", b: -1.8 },
     { v: "usdcny", b: -1.4 },
   ],
   // Same base-metal shape as Copper, weighted even more heavily toward
@@ -426,7 +456,6 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "gdpGrowth", b: 3.6 },
     { v: "pmiMfg", b: 4.2 },
     { v: "unemployment", b: -1.3 },
-    { v: "emStress", b: -2.5 },
     { v: "usdcny", b: -2.0 },
   ],
   AGS: [
@@ -434,53 +463,92 @@ export const COMMODITY_BETAS: Record<string, Beta[]> = {
     { v: "cpiHeadline", b: 2.2 },
     { v: "termsOfTrade", b: 0.8 },
     { v: "gdpGrowth", b: 0.8 },
-    { v: "emStress", b: -0.5 },
   ],
 };
 
 /** Brent is priced off WTI plus its own external premium, not independently. */
 export const DERIVED_COMMODITY: Record<string, { from: string; beta: number; own: Beta[] }> = {
-  BRENT: { from: "WTI", beta: 0.96, own: [{ v: "emStress", b: -0.8 }] },
+  BRENT: { from: "WTI", beta: 0.96, own: [] },
 };
 
 // ---------------------------------------------------------------------------
-// FX. A single latent dollar factor is priced first and every pair inherits it
-// through a beta whose SIGN comes from the pair's quote convention in
-// lib/assets.ts. Modelling seven pairs independently is how a model ends up
-// printing a stronger dollar against the euro and a weaker one against sterling
-// out of the same shock.
+// FX. A single latent dollar factor is priced first (USD/CAD, below — it
+// replaces a broad trade-weighted dollar index by request, but keeps that
+// index's exact architectural job) and every pair inherits it through a beta
+// whose SIGN comes from the pair's quote convention in lib/assets.ts.
+// Modelling seven pairs independently is how a model ends up printing a
+// stronger dollar against the euro and a weaker one against sterling out of
+// the same shock.
 // ---------------------------------------------------------------------------
-export const DXY_BETAS: Beta[] = [
+export const USDCAD_BETAS: Beta[] = [
   { v: "fedFunds", b: 2.8 },
-  { v: "ecbDepo", b: -2.2 },
-  { v: "bojPolicy", b: -1.1 },
-  { v: "boeBank", b: -0.7 },
   { v: "forwardGuidance", b: 1.3 },
   { v: "realRate10y", b: 1.0 },
-  { v: "gdpGrowth", b: 0.9 },
-  { v: "vix", b: 0.8 },
-  { v: "emStress", b: 1.2 },
-  { v: "currentAccount", b: 0.6 },
-  { v: "deficitGdp", b: -0.3 },
-  { v: "debtGdp", b: -0.5 },
   { v: "qtPace", b: 0.4 },
   { v: "fedBalanceSheet", b: -1.2 },
+  { v: "deficitGdp", b: -0.3 },
+  { v: "debtGdp", b: -0.5 },
+  { v: "currentAccount", b: 0.6 },
   { v: "termsOfTrade", b: 0.7 },
+  // Bumped from the old basket's 0.8: CAD is a single higher-beta
+  // risk/commodity currency, not an average across majors, so it sells off
+  // harder than a basket would in the same flight-to-quality episode.
+  { v: "vix", b: 1.0 },
+  // SIGN FLIPPED from the old basket's +0.9. For a trade-weighted index,
+  // strong US growth read as "US exceptionalism" and pulled the dollar up
+  // broadly. For this one bilateral pair specifically, US-Canada trade
+  // integration dominates instead — roughly three-quarters of Canadian
+  // exports go to the US, so strong US demand pulls Canadian exports (and
+  // the loonie) up with it, which pulls USD/CAD down.
+  { v: "gdpGrowth", b: -0.4 },
+  // NEW, and the single defining feature a bilateral CAD pair needs that a
+  // broad basket never had to capture: Canada is a major oil exporter, the
+  // same petrocurrency dynamic already modelled for USD/MXN's WTI link
+  // below. This is a direct bet on the ENERGY SUPPLY SHOCK input (positive
+  // = a shortage, oil price up), not a second-round link off WTI's own
+  // priced move the way USDMXN's oil term is — USD/CAD is computed in the
+  // "2. Dollar" stage of lib/engine.ts, BEFORE commodities price in stage 3,
+  // so a WTI -> USDCAD second-round link would read a not-yet-computed
+  // price and silently no-op (and would fail tests/engine.test.ts's acyclic-
+  // sweep-order check if it somehow didn't). Reading the same root-cause
+  // variable WTI's own beta already uses keeps both prices honest about the
+  // same shock without needing the one to be computed before the other.
+  // Negative sign: a shortage (oil price up) strengthens the petrocurrency,
+  // which pulls USD/CAD down.
+  { v: "energySupply", b: -0.2 },
+  // ECB/BoJ/BoE policy terms from the old broad-basket version are dropped
+  // entirely here — they described how a trade-weighted index responds to
+  // its OTHER constituent currencies' central banks, which has no direct
+  // bearing on a single USD/CAD cross.
 ];
 
 export interface FxPair {
-  /** Percent move in the pair per 1% move in DXY. Sign carries the convention. */
-  dxyBeta: number;
+  /** Percent move in the pair per 1% move in USD/CAD. Sign carries the convention. */
+  usdcadBeta: number;
   own: Beta[];
 }
 
 export const FX_PAIRS: Record<string, FxPair> = {
-  EURUSD: { dxyBeta: -1.05, own: [{ v: "ecbDepo", b: 1.6 }, { v: "emStress", b: -0.3 }] },
-  USDJPY: { dxyBeta: 1.15, own: [{ v: "bojPolicy", b: -3.2 }, { v: "vix", b: -1.2 }] },
-  GBPUSD: { dxyBeta: -0.95, own: [{ v: "boeBank", b: 1.4 }, { v: "vix", b: -0.6 }] },
-  USDCNY: { dxyBeta: 0.35, own: [{ v: "emStress", b: 0.8 }] },
-  USDMXN: { dxyBeta: 1.25, own: [{ v: "emStress", b: 3.2 }, { v: "vix", b: 1.8 }] },
-  USDBRL: { dxyBeta: 1.35, own: [{ v: "emStress", b: 3.6 }, { v: "vix", b: 1.6 }] },
+  EURUSD: { usdcadBeta: -1.05, own: [{ v: "ecbDepo", b: 1.6 }] },
+  USDJPY: { usdcadBeta: 1.15, own: [{ v: "bojPolicy", b: -3.2 }, { v: "vix", b: -1.2 }] },
+  GBPUSD: { usdcadBeta: -0.95, own: [{ v: "boeBank", b: 1.4 }, { v: "vix", b: -0.6 }] },
+  USDCNY: { usdcadBeta: 0.35, own: [] },
+  USDMXN: { usdcadBeta: 1.25, own: [{ v: "vix", b: 1.8 }] },
+  // CHF is a G10 haven, not an EM currency — the opposite sign from
+  // USDMXN's own VIX term above. A dollar-funding squeeze sells EM FX
+  // (positive beta: USDMXN rises, the peso weakens) but buys CHF (negative
+  // beta: USDCHF falls, the franc strengthens), the same flight-to-quality
+  // bid that already drives USDJPY's own VIX term above. usdcadBeta is damped
+  // relative to JPY's — SNB intervention against excessive appreciation and
+  // CHF's own tight EUR/CHF linkage (see the EURUSD -> USDCHF SECOND_ROUND
+  // link below) decouple it somewhat from generic broad-dollar momentum.
+  //
+  // Must stay listed after EURUSD above: engine.ts's FX pairs loop (step 4)
+  // computes each pair in this object's iteration order and folds the result
+  // straight into `sources` for the next one, so the EURUSD -> USDCHF
+  // SECOND_ROUND link below only sees a non-stale EURUSD move if EURUSD's
+  // own entry runs first.
+  USDCHF: { usdcadBeta: 0.55, own: [{ v: "vix", b: -1.0 }] },
 };
 
 // ---------------------------------------------------------------------------
@@ -508,15 +576,20 @@ export const SECOND_ROUND: SecondRound[] = [
   // multiples; there is no direct rate term in EQUITY_CHANNELS.multiple.
   { from: "UST10Y", to: "SPX", channel: "multiple", unit: "pct", b: -0.075, why: "Discount rate: 10y into the equity multiple" },
 
-  // The dollar into everything priced in it.
-  { from: "DXY", to: "WTI", channel: "price", unit: "pct", b: -0.55, why: "Dollar leg of a dollar-priced barrel" },
-  { from: "DXY", to: "GOLD", channel: "price", unit: "pct", b: -0.85, why: "Dollar leg" },
-  { from: "DXY", to: "COPPER", channel: "price", unit: "pct", b: -0.75, why: "Dollar leg" },
-  { from: "DXY", to: "AGS", channel: "price", unit: "pct", b: -0.45, why: "Dollar leg" },
-  { from: "DXY", to: "IRON", channel: "price", unit: "pct", b: -0.65, why: "Dollar leg" },
-  { from: "DXY", to: "NATGAS", channel: "price", unit: "pct", b: -0.25, why: "Dollar leg, damped by regional pricing" },
-  { from: "DXY", to: "EAFE", channel: "price", unit: "pct", b: -0.70, why: "Translation of unhedged developed-market equity into USD" },
-  { from: "DXY", to: "EM", channel: "price", unit: "pct", b: -1.35, why: "EM equity carries the dollar twice: translation and funding" },
+  // The dollar into everything priced in it. USD/CAD carries this leg now
+  // (it replaced the old broad dollar index, DXY, as the one latent dollar
+  // factor — see the "FX" section below) rather than a trade-weighted
+  // basket, but the economic story each line tells is unchanged: these are
+  // all still a generic "the dollar moved" effect, not anything specific to
+  // Canada.
+  { from: "USDCAD", to: "WTI", channel: "price", unit: "pct", b: -0.55, why: "Dollar leg of a dollar-priced barrel" },
+  { from: "USDCAD", to: "GOLD", channel: "price", unit: "pct", b: -0.85, why: "Dollar leg" },
+  { from: "USDCAD", to: "COPPER", channel: "price", unit: "pct", b: -0.75, why: "Dollar leg" },
+  { from: "USDCAD", to: "AGS", channel: "price", unit: "pct", b: -0.45, why: "Dollar leg" },
+  { from: "USDCAD", to: "IRON", channel: "price", unit: "pct", b: -0.65, why: "Dollar leg" },
+  { from: "USDCAD", to: "NATGAS", channel: "price", unit: "pct", b: -0.25, why: "Dollar leg, damped by regional pricing" },
+  { from: "USDCAD", to: "EAFE", channel: "price", unit: "pct", b: -0.70, why: "Translation of unhedged developed-market equity into USD" },
+  { from: "USDCAD", to: "EM", channel: "price", unit: "pct", b: -1.35, why: "EM equity carries the dollar twice: translation and funding" },
 
   // Equity into credit. The dominant second-round link in any stress scenario.
   { from: "SPX", to: "IG", channel: "spread", unit: "bp", b: -1.6, why: "Equity drawdown into IG spread" },
@@ -530,7 +603,16 @@ export const SECOND_ROUND: SecondRound[] = [
   { from: "WTI", to: "HY_BCCC", channel: "spread", unit: "bp", b: -0.90, why: "Energy issuer weight in the distressed tier" },
   { from: "WTI", to: "SEC_ENGY", channel: "price", unit: "pct", b: 0.35, why: "Sector earnings track the barrel" },
   { from: "WTI", to: "USDMXN", channel: "price", unit: "pct", b: -0.15, why: "Oil exporter terms of trade" },
-  { from: "COPPER", to: "USDBRL", channel: "price", unit: "pct", b: -0.12, why: "Commodity exporter terms of trade" },
+  // CHF is not a commodity-exporter currency, so it has no terms-of-trade
+  // link the way USDMXN/the old USDBRL did. What actually anchors USD/CHF
+  // day to day is EUR/CHF: Switzerland's economy and trade are tied tightly
+  // to the Eurozone, and the SNB has a long history of actively managing
+  // that cross (most visibly the 2011-2015 1.20 floor) to keep it stable.
+  // A euro-specific move (via ecbDepo, not a generic dollar move already
+  // captured by USDCHF's own usdcadBeta above) passes through to the franc:
+  // EUR/USD up (the euro strengthens) pulls USD/CHF down (the franc also
+  // strengthens), hence the negative sign.
+  { from: "EURUSD", to: "USDCHF", channel: "price", unit: "pct", b: -0.55, why: "EUR/CHF co-movement — the SNB manages this cross tightly" },
   { from: "COPPER", to: "SEC_INDU", channel: "price", unit: "pct", b: 0.10, why: "Industrial demand read-through" },
   { from: "IRON", to: "SEC_INDU", channel: "price", unit: "pct", b: 0.08, why: "Industrial demand read-through" },
 

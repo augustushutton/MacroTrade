@@ -48,6 +48,13 @@ const config: Config = {
         // no per-instrument colours, so a label is never mistaken for a signal.
         up: "rgb(var(--up) / <alpha-value>)",
         down: "rgb(var(--down) / <alpha-value>)",
+        // Brighter variants, used only by signColor (lib/format.ts) for plain
+        // number/text colouring. up/down above stay dark on purpose for every
+        // fill/chart use (signFillBg, heatBg, the Monte Carlo histogram, the
+        // two-variable surface) — see the --up-bright/--down-bright comment
+        // in globals.css for the full reasoning.
+        "up-bright": "rgb(var(--up-bright) / <alpha-value>)",
+        "down-bright": "rgb(var(--down-bright) / <alpha-value>)",
         warn: "rgb(var(--warn) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
       },

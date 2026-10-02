@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 // Shared primitives. Uppercase is reserved for table column headers (Th)
 // only; panel titles, buttons, and section dividers render in natural case.
@@ -150,8 +151,9 @@ export function Td({
   className?: string;
   colSpan?: number;
   /** Only for a value picked at runtime from a CSS custom property (e.g.
-   *  signFillBg/heatBg) — a Tailwind class can't express that. Everything
-   *  else stays a className so Tailwind's scanner can see it in source. */
+   *  heatBg, or the amber spotlight boxShadow on a selected/pinned/dominant
+   *  cell) — a Tailwind class can't express that. Everything else stays a
+   *  className so Tailwind's scanner can see it in source. */
   style?: React.CSSProperties;
 }) {
   const a = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
@@ -171,40 +173,55 @@ export function Td({
 export function Btn({
   active = false,
   onClick,
+  href,
   children,
   title,
   className = "",
 }: {
   active?: boolean;
   onClick?: () => void;
+  /** Renders as a Link instead of a button — for a segment that navigates to
+   *  a route (TopNav's page tabs) rather than toggling in-page state (the
+   *  Path/Horizon selectors, Derivation's group tabs). Same classes either
+   *  way, on purpose: whether a tab is a URL or a local toggle, it should
+   *  look like the same kind of control. */
+  href?: string;
   children: React.ReactNode;
   title?: string;
   className?: string;
 }) {
+  const cls = `relative border px-2.5 py-dense text-[11px] font-medium transition-none ${
+    active
+      ? // Pressed-in rather than lit: bg-term-bg already reads as
+        // "sunk to the page," and a hard, zero-blur two-corner inset
+        // (dark top/left, faint light bottom/right — the inverse of
+        // the raised bevel below, the standard Windows/Swing "sunken"
+        // convention) makes that literal instead of a soft modern
+        // inset glow. A 1px downward nudge on the label sells the
+        // same "physically depressed" read a real key gets.
+        "z-10 translate-y-px border-info bg-term-bg text-term-text shadow-[inset_2px_2px_0_0_rgb(0_0_0_/_0.85),inset_-1px_-1px_0_0_rgb(255_255_255_/_0.05)]"
+      : // Raised: bg-term-raised + the global bevel-border rule
+        // already carry the flat fill and two-tone hard edge (see
+        // globals.css) — a Windows/Swing "button face," not a glossy
+        // gradient — so no extra shadow is needed here at all; one
+        // more blurred drop-shadow on top would be exactly the soft
+        // "modern card" effect this pass is removing.
+        "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+  } ${className}`;
+
+  if (href) {
+    return (
+      <Tooltip content={title}>
+        <Link href={href} className={cls}>
+          {children}
+        </Link>
+      </Tooltip>
+    );
+  }
+
   return (
     <Tooltip content={title}>
-      <button
-        type="button"
-        onClick={onClick}
-        className={`relative border px-2.5 py-dense text-[11px] font-medium transition-none ${
-          active
-            ? // Pressed-in rather than lit: bg-term-bg already reads as
-              // "sunk to the page," and a hard, zero-blur two-corner inset
-              // (dark top/left, faint light bottom/right — the inverse of
-              // the raised bevel below, the standard Windows/Swing "sunken"
-              // convention) makes that literal instead of a soft modern
-              // inset glow. A 1px downward nudge on the label sells the
-              // same "physically depressed" read a real key gets.
-              "z-10 translate-y-px border-info bg-term-bg text-term-text shadow-[inset_2px_2px_0_0_rgb(0_0_0_/_0.85),inset_-1px_-1px_0_0_rgb(255_255_255_/_0.05)]"
-            : // Raised: bg-term-raised + the global bevel-border rule
-              // already carry the flat fill and two-tone hard edge (see
-              // globals.css) — a Windows/Swing "button face," not a glossy
-              // gradient — so no extra shadow is needed here at all; one
-              // more blurred drop-shadow on top would be exactly the soft
-              // "modern card" effect this pass is removing.
-              "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
-        } ${className}`}
-      >
+      <button type="button" onClick={onClick} className={cls}>
         {children}
       </button>
     </Tooltip>
@@ -270,19 +287,4 @@ export function useFlash(value: number, active: boolean, dead = 0): "flash-up" |
   }, [value, active]);
 
   return cls;
-}
-
-/** Horizontal signed bar. Zero sits on a centre rule, not at the left edge. */
-export function SignedBar({ v, max, height = 9 }: { v: number; max: number; height?: number }) {
-  const w = max > 0 ? Math.min(50, (Math.abs(v) / max) * 50) : 0;
-  const pos = v >= 0;
-  return (
-    <div className="relative w-full bg-term-raised" style={{ height }}>
-      <div className="absolute inset-y-0 left-1/2 w-px bg-term-line" />
-      <div
-        className={`absolute inset-y-0 ${pos ? "bg-up" : "bg-down"}`}
-        style={{ left: pos ? "50%" : `${50 - w}%`, width: `${w}%` }}
-      />
-    </div>
-  );
 }

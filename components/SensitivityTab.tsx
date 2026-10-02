@@ -1,60 +1,109 @@
 "use client";
 
 import React from "react";
-import { heatGrid, horizonLadder, sensitivity, type ScenarioInput } from "@/lib/engine";
-import { monteCarloVaR, type MonteCarloResult } from "@/lib/montecarlo";
+import { cumulativeInflation, heatGrid, horizonLadder, realReturn, sensitivity, type ScenarioInput } from "@/lib/engine";
 import { HORIZON_LABEL } from "@/lib/paths";
 import { VAR_BY_ID, movedVars } from "@/lib/vars";
-import { fmtPct, fmtSigned, heatBg, heatFg, signColor, unitLabel } from "@/lib/format";
-import { Btn, Cap, Panel, Select, SignedBar, Td, Th } from "./ui";
+import { fmtPct, heatBg, heatFg, signColor, unitLabel } from "@/lib/format";
+import { Cap, Panel, Select, Td, Th } from "./ui";
 
-/** Histogram of the Monte Carlo outcome distribution, with the 95% VaR
- *  threshold marked. Dense, no-library SVG in the same register as the rest
- *  of the app's charts. */
-function VarHistogram({ mc }: { mc: MonteCarloResult }) {
-  const w = 640;
-  const h = 120;
-  const padL = 2;
-  const padR = 2;
-  const padT = 6;
-  const padB = 16;
-  const min = mc.outcomes[0] ?? 0;
-  const max = mc.outcomes[mc.outcomes.length - 1] ?? 0;
-  const span = Math.max(max - min, 1e-6);
-  const bins = 28;
-  const counts = new Array(bins).fill(0);
-  for (const v of mc.outcomes) {
-    const idx = Math.min(bins - 1, Math.floor(((v - min) / span) * bins));
-    counts[idx]++;
+/**
+ * Lets a reader override the one inflation input the Real Return table below
+ * depends on (see cumulativeInflation/realReturn in lib/engine.ts) without
+ * touching the scenario itself — "what if CPI actually compounds at 6%, not
+ * whatever this scenario happens to set Headline CPI YoY to" is a question
+ * about the deflator, not a restatement of the macro scenario, so it lives
+ * as local component state (cpiOverride in SensitivityTab) rather than a
+ * write into the shared VarState every other control on this page reads
+ * from. null means "use the scenario's own Headline CPI YoY," matching the
+ * engine's own default (see horizonLadder) — overriding and resetting are
+ * symmetric, not "pick a number vs. pick a different number."
+ *
+ * Deliberately just the stepper — no caption explaining what it does — and
+ * centred rather than stretched to the panel's 260px width: the Panel title
+ * already says what it is, and the Real Return panel below gains its own
+ * "using assumed CPI" note the moment this is actually overridden, so this
+ * control doesn't need to carry that explanation itself.
+ */
+function InflationAssumption({
+  scenarioCpi,
+  override,
+  setOverride,
+}: {
+  scenarioCpi: number;
+  override: number | null;
+  setOverride: (v: number | null) => void;
+}) {
+  const v = VAR_BY_ID.cpiHeadline;
+  const value = override ?? scenarioCpi;
+  const isOverridden = override !== null;
+
+  function clamp(n: number): number {
+    return Math.min(v.max, Math.max(v.min, n));
   }
-  const maxCount = Math.max(1, ...counts);
-  const binW = (w - padL - padR) / bins;
-  const innerH = h - padT - padB;
-  const xOf = (v: number) => padL + ((v - min) / span) * (w - padL - padR);
+  function bump(sign: 1 | -1, mods: { shiftKey?: boolean }) {
+    const amt = mods.shiftKey ? v.step * 10 : v.step;
+    setOverride(clamp(Math.round((value + sign * amt) * 100) / 100));
+  }
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }} role="img" aria-label="Monte Carlo outcome distribution with 95% VaR marked">
-      {counts.map((c, i) => {
-        const binLo = min + (i / bins) * span;
-        const bh = (c / maxCount) * innerH;
-        const isLoss = binLo < 0;
-        return (
-          <rect
-            key={i}
-            x={padL + i * binW + 0.5}
-            y={padT + innerH - bh}
-            width={Math.max(binW - 1, 0.5)}
-            height={bh}
-            className={isLoss ? "fill-down/60" : "fill-up/60"}
+    <Panel title="Inflation Assumption">
+      <div className="flex flex-col items-center gap-1 px-2 py-2">
+        <div className="flex items-stretch gap-dense">
+          <button
+            type="button"
+            onClick={(e) => bump(-1, e)}
+            className="w-5 shrink-0 border border-term-edge bg-term-raised font-mono text-[11px] leading-none text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+          >
+            &minus;
+          </button>
+          <input
+            type="number"
+            min={v.min}
+            max={v.max}
+            step={v.step}
+            value={value.toFixed(v.dp)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) setOverride(clamp(n));
+            }}
+            className={`w-14 shrink-0 border px-1 py-hair text-right font-mono text-[11px] tnum ${
+              isOverridden
+                ? "border-warn bg-warn text-term-bg font-medium"
+                : "border-term-edge bg-term-input text-term-text"
+            }`}
           />
-        );
-      })}
-      <line x1={xOf(mc.var95)} y1={padT} x2={xOf(mc.var95)} y2={padT + innerH} className="stroke-term-text" strokeWidth={1} strokeDasharray="3 2" />
-      <text x={xOf(mc.var95)} y={h - 4} fontSize={9} textAnchor="middle" className="fill-term-text">
-        VaR 95
-      </text>
-      <line x1={xOf(0)} y1={padT} x2={xOf(0)} y2={padT + innerH} className="stroke-term-line" strokeWidth={1} />
-    </svg>
+          <button
+            type="button"
+            onClick={(e) => bump(1, e)}
+            className="w-5 shrink-0 border border-term-edge bg-term-raised font-mono text-[11px] leading-none text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+          >
+            +
+          </button>
+          <Cap className="flex shrink-0 items-center">%</Cap>
+        </div>
+        {/* Always rendered, not conditionally — reserving this line's height
+            whether or not it's active keeps the panel (and the Horizon
+            Ladder above it, which claims whatever leftover height this
+            column doesn't use — see its own flex-1 comment) at the same
+            size in both states, on request: toggling the override used to
+            grow the panel by one line and visibly shrink the ladder's rows
+            to compensate. invisible + pointer-events-none takes it out of
+            the visual/interaction picture without taking it out of layout. */}
+        <button
+          type="button"
+          onClick={() => setOverride(null)}
+          tabIndex={isOverridden ? 0 : -1}
+          aria-hidden={!isOverridden}
+          className={`text-th text-term-muted hover:text-down ${isOverridden ? "" : "invisible pointer-events-none"}`}
+        >
+          <span aria-hidden className="mr-0.5">
+            &#8634;
+          </span>
+          Reset
+        </button>
+      </div>
+    </Panel>
   );
 }
 
@@ -80,14 +129,14 @@ export default function SensitivityTab({
   const bars = React.useMemo(() => sensitivity(input, portfolioId), [input, portfolioId]);
   const ladder = React.useMemo(() => horizonLadder(input, portfolioId), [input, portfolioId]);
 
-  // Transient, not persisted (same treatment as CompareTab's picked-preset
-  // drill-down) — this is a "what if the inputs were less certain" dial, not
-  // a saved setting.
-  const [noisePct, setNoisePct] = React.useState(0.25);
-  const monteCarlo = React.useMemo(
-    () => monteCarloVaR(input, portfolioId, { runs: 400, noisePct }),
-    [input, portfolioId, noisePct],
-  );
+  // null = no override, Real Return below uses the scenario's own cpiUsed
+  // (ladder[].cpiUsed, already Headline CPI YoY — see horizonLadder in
+  // lib/engine.ts) exactly as it always has. Reset switches it back here
+  // rather than snapping to whatever the scenario's current value is, so a
+  // later scenario change doesn't silently resurrect a stale typed number.
+  const [cpiOverride, setCpiOverride] = React.useState<number | null>(null);
+  const scenarioCpi = input.state.cpiHeadline ?? VAR_BY_ID.cpiHeadline.base;
+  const assumedCpi = cpiOverride ?? scenarioCpi;
 
   const x = xVar || moved[0]?.id || "fedFunds";
   const y = yVar || moved[1]?.id || (x === "cpiCore" ? "gdpGrowth" : "cpiCore");
@@ -97,73 +146,77 @@ export default function SensitivityTab({
   );
 
   const heatMax = Math.max(Math.abs(grid.min), Math.abs(grid.max), 0.0001);
+  // Same heatBg/heatFg scaling as the Two-Variable Surface just below this
+  // panel, applied to the one column that is itself a value rather than a
+  // label (Variable/Move identify the row; Impact % is the thing being
+  // measured) — scaled off this table's OWN largest |Impact %|, not the
+  // surface's heatMax, since the two panels show different quantities over
+  // different ranges and sharing one scale would wash this one out or
+  // saturate it depending on which happened to be larger.
+  const loHeatMax = Math.max(...bars.map((b) => Math.abs(b.delta)), 0.0001);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-0">
       <Panel title="Leave-One-Out Attribution">
         {bars.length === 0 ? (
           <div className="px-3 py-4">
             <Cap>No variable moved from baseline</Cap>
-            {/* This panel is empty by design at baseline — attribution has
-                nothing to attribute yet — but a single dim caption with no
-                further text reads like a stalled/broken load rather than a
-                deliberate empty state. A second line pointing at the actual
-                next action (go move something in Builder) costs one row and
-                removes the ambiguity. */}
-            <div className="mt-1 text-th text-term-edge">Move a variable in Builder to see its isolated contribution here.</div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
+          {/* table-fixed with every column explicitly widthed: on a very wide
+              monitor, plain table-auto layout does NOT keep unconstrained
+              columns pinned at their content width — it stretches them, and
+              unevenly across columns of different header-text length, which
+              is what used to strand a "Move" or "Impact %" figure far from
+              its row with a dead gap in front of it. table-fixed scales every
+              column by the SAME ratio instead, so the table grows evenly at
+              any width rather than breaking at some of them. See
+              app/providers.tsx for the page-width side of this fix. */}
+          <table className="w-full table-fixed border-collapse text-[11px]">
             <thead>
-              <tr className="bg-term-raised">
-                <Th className="w-[190px]">Variable</Th>
-                <Th align="right" className="w-[100px]">
-                  Move
-                </Th>
-                <Th className="w-[160px]">Impact</Th>
-                <Th align="right" className="w-[80px]">
+              <tr className="sticky top-0 z-10 bg-term-raised">
+                <Th className="w-[60%]">Variable</Th>
+                <Th align="right" className="w-[40%]">
                   Impact %
-                </Th>
-                <Th align="right" className="w-[60px]">
-                  Share
                 </Th>
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                const total = bars.reduce((s, z) => s + Math.abs(z.delta), 0) || 1;
-                // Sorted by |delta| already (see sensitivity() in lib/engine.ts),
-                // so the widest bar always belongs to bars[0] — the classic
-                // tornado-chart layout, biggest driver on top.
-                const maxAbs = Math.abs(bars[0]?.delta ?? 0);
-                return bars.map((b) => (
-                  <tr key={b.varId} className="border-b border-term-line even:bg-term-zebra">
-                    <Td className="text-term-text">{b.label}</Td>
-                    <Td align="right" mono className={signColor(b.rawMove, 10 ** -VAR_BY_ID[b.varId].dp / 2)}>
-                      {fmtSigned(b.rawMove, VAR_BY_ID[b.varId].dp)} {b.unit}
-                    </Td>
-                    <Td className="p-0">
-                      <div className="px-2 py-dense">
-                        <SignedBar v={b.delta} max={maxAbs} />
-                      </div>
-                    </Td>
-                    <Td align="right" mono className={`font-medium ${signColor(b.delta)}`}>
-                      {fmtPct(b.delta)}
-                    </Td>
-                    <Td align="right" mono className="text-term-muted">
-                      {((Math.abs(b.delta) / total) * 100).toFixed(0)}%
-                    </Td>
-                  </tr>
-                ));
-              })()}
+              {/* Sorted by |delta| already (see sensitivity() in lib/engine.ts) —
+                  the biggest driver is always first, so the ranking that a
+                  tornado bar used to show at a glance is already carried by row
+                  order. The Move column (the raw input shock behind each
+                  figure) was removed by request — this table is about the
+                  impact each variable had, not what was moved to produce it,
+                  and that input-side detail already lives in the Builder/
+                  Derivation pages. The single signed Impact % figure left
+                  carries the whole story: its own heatBg/heatFg fill (the
+                  same treatment as the Two-Variable Surface below, scaled off
+                  this table's own largest |Impact %| — see loHeatMax above)
+                  turns the ranking already carried by row order into
+                  something scannable as a column of colour, the way a
+                  one-column heatmap reads at a glance. */}
+              {bars.map((b) => (
+                <tr key={b.varId} className="border-b border-term-line even:bg-term-zebra">
+                  <Td className="text-term-text">{b.label}</Td>
+                  <Td
+                    align="right"
+                    mono
+                    className="font-medium"
+                    style={{ background: heatBg(b.delta, loHeatMax), color: heatFg(b.delta, loHeatMax) }}
+                  >
+                    {fmtPct(b.delta)}
+                  </Td>
+                </tr>
+              ))}
             </tbody>
           </table>
           </div>
         )}
       </Panel>
 
-      <div className="grid grid-cols-[1fr_260px] gap-2">
+      <div className="grid grid-cols-[1fr_260px] gap-0">
         <Panel
           title="Two-Variable Surface"
           right={
@@ -229,12 +282,9 @@ export default function SensitivityTab({
             </tbody>
           </table>
           </div>
-          <div className="flex items-center justify-between border-t border-term-line px-2 py-1">
+          <div className="flex items-center border-t border-term-line px-2 py-1">
             <Cap>
               {VAR_BY_ID[x].label} across {VAR_BY_ID[y].label}
-            </Cap>
-            <Cap>
-              Range {grid.min.toFixed(2)} to {grid.max.toFixed(2)} pct
             </Cap>
           </div>
           {/* Colour legend: the heatmap's fill opacity is |value| / heatMax
@@ -259,88 +309,115 @@ export default function SensitivityTab({
           </div>
         </Panel>
 
-        <Panel title="Horizon Ladder">
-          <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[11px]">
-            <thead>
-              <tr className="bg-term-raised">
-                <Th>Horizon</Th>
-                <Th align="right">Return (%)</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {ladder.map((l) => (
-                <tr key={l.horizon} className="border-b border-term-line even:bg-term-zebra">
-                  <Td className="text-term-sub">{HORIZON_LABEL[l.horizon]}</Td>
-                  <Td align="right" mono className={`font-medium ${signColor(l.pct)}`}>
+        {/* A plain flex column, not a second grid-template column of its own —
+            it just needs to stack Horizon Ladder above Inflation Assumption
+            at the SAME 260px width the grid track already gives this cell,
+            on request ("match its width"). The grid's default stretch
+            alignment already sizes this div to the row's full height (set by
+            Two-Variable Surface, the taller sibling), which is what lets
+            Horizon Ladder's own flex-1 below claim all the space Inflation
+            Assumption doesn't need. */}
+        <div className="flex flex-col">
+          {/* flex-1 + flex flex-col on the Panel itself (not just its
+              children) is what actually claims the leftover height the grid
+              gives this column — Panel's own box already stretches to match
+              Two-Variable Surface via the grid's default alignment, but
+              nothing inside it grows to fill that box without this. */}
+          <Panel title="Horizon Ladder" className="flex flex-1 flex-col">
+            {/* Plain flex rows, not a <table> — a real <tr>/<td> can't be
+                told to grow (display:table-row ignores flex-grow), and that
+                growth is the whole point here: four rows evenly filling
+                whatever height Two-Variable Surface's taller content leaves
+                this column, instead of leaving dead panel background below
+                the last row. */}
+            <div className="flex items-center justify-between border-b border-term-edge bg-term-raised px-2 py-dense text-th font-medium uppercase leading-[13px] tracking-wide text-term-muted">
+              <span>Horizon</span>
+              <span>Return (%)</span>
+            </div>
+            <div className="flex flex-1 flex-col">
+              {ladder.map((l, i) => (
+                <div
+                  key={l.horizon}
+                  className={`flex flex-1 items-center justify-between px-2 leading-[14px] ${
+                    i < ladder.length - 1 ? "border-b border-term-line" : ""
+                  } ${i % 2 === 1 ? "bg-term-zebra" : ""}`}
+                >
+                  <span className="text-[11px] text-term-sub">{HORIZON_LABEL[l.horizon]}</span>
+                  <span className={`font-mono text-[11px] tnum font-medium ${signColor(l.pct)}`}>
                     {fmtPct(l.pct)}
-                  </Td>
-                </tr>
+                  </span>
+                </div>
               ))}
-            </tbody>
-          </table>
-          </div>
-        </Panel>
+            </div>
+          </Panel>
+
+          <InflationAssumption scenarioCpi={scenarioCpi} override={cpiOverride} setOverride={setCpiOverride} />
+        </div>
       </div>
 
-      <Panel
-        title="Scenario Uncertainty (Monte Carlo)"
-        right={
-          <div className="flex items-center gap-1">
-            <Cap>Shock uncertainty</Cap>
-            {[0.1, 0.25, 0.5].map((n) => (
-              <Btn key={n} active={noisePct === n} onClick={() => setNoisePct(n)}>
-                &plusmn;{(n * 100).toFixed(0)}%
-              </Btn>
-            ))}
-          </div>
-        }
-      >
-        {/* PnlTab deliberately omits VaR/Sharpe because this engine has no
-            covariance model to back a real-world risk figure — see its own
-            comment. This is a different, narrower question: given how
-            precisely the SCENARIO's own inputs are actually known, how much
-            does that uncertainty alone move the outcome? It is computed by
-            re-running the real engine {monteCarlo.runs} times under random
-            perturbation, not asserted, but it is scenario/parameter
-            uncertainty, not portfolio risk, and is labelled that way
-            throughout. */}
-        <div className="px-2 py-2">
-          <VarHistogram mc={monteCarlo} />
-        </div>
-        <div className="overflow-x-auto border-t border-term-line">
-          <table className="w-full border-collapse text-[11px]">
+      {/* "Scenario Uncertainty (Monte Carlo)" — the histogram + VaR/CVaR
+          table re-running the engine under random shock perturbation — was
+          removed by request. lib/montecarlo.ts and tests/montecarlo.test.ts
+          are left on disk, untouched and simply unused, same reversibility
+          convention as the rest of this codebase's removed-by-request
+          features. */}
+
+      {/* Its own full-width section, not squeezed into the Horizon Ladder's
+          260px sidebar column — CPI's effect on a scenario is real enough to
+          read at its own width, not a footnote crammed next to it. Nominal
+          is the scenario's own figure (ladder[].pct, unaffected by the
+          Inflation Assumption override above); Cumulative CPI and Real are
+          both recomputed here off `assumedCpi` (cumulativeInflation/
+          realReturn in lib/engine.ts) rather than read off ladder[].cpiUsed/
+          realPct directly, so overriding the assumption above actually
+          changes what this table shows instead of only labelling the same
+          scenario-locked numbers differently. Inflation Drag is just Real
+          minus Nominal, restated as its own column because "how many points
+          did inflation cost this scenario" is the number a reader actually
+          wants without doing that subtraction themselves. */}
+      <Panel title="Real Return (Inflation-Adjusted)">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed border-collapse text-[11px]">
             <thead>
               <tr className="bg-term-raised">
-                <Th align="right">Mean</Th>
-                <Th align="right">Std Dev</Th>
-                <Th align="right">VaR 95</Th>
-                <Th align="right">CVaR 95</Th>
-                <Th align="right">VaR 99</Th>
-                <Th align="right">CVaR 99</Th>
+                <Th className="w-[16%]">Horizon</Th>
+                <Th align="right" className="w-[20%] border-r border-term-line">
+                  Nominal (%)
+                </Th>
+                <Th align="right" className="w-[26%] border-r border-term-line">
+                  Cumulative CPI Assumed (%)
+                </Th>
+                <Th align="right" className="w-[18%] border-r border-term-line">
+                  Real (%)
+                </Th>
+                <Th align="right" className="w-[20%]">
+                  Inflation Drag (pp)
+                </Th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <Td align="right" mono className={signColor(monteCarlo.mean)}>
-                  {fmtPct(monteCarlo.mean)}
-                </Td>
-                <Td align="right" mono className="text-term-muted">
-                  {monteCarlo.stdev.toFixed(2)}%
-                </Td>
-                <Td align="right" mono className={`font-medium ${signColor(monteCarlo.var95)}`}>
-                  {fmtPct(monteCarlo.var95)}
-                </Td>
-                <Td align="right" mono className={signColor(monteCarlo.cvar95)}>
-                  {fmtPct(monteCarlo.cvar95)}
-                </Td>
-                <Td align="right" mono className={`font-medium ${signColor(monteCarlo.var99)}`}>
-                  {fmtPct(monteCarlo.var99)}
-                </Td>
-                <Td align="right" mono className={signColor(monteCarlo.cvar99)}>
-                  {fmtPct(monteCarlo.cvar99)}
-                </Td>
-              </tr>
+              {ladder.map((l) => {
+                const cumCpi = cumulativeInflation(assumedCpi, l.horizon);
+                const realPct = realReturn(l.pct, assumedCpi, l.horizon);
+                const drag = realPct - l.pct;
+                return (
+                  <tr key={l.horizon} className="border-b border-term-line even:bg-term-zebra">
+                    <Td className="text-term-sub">{HORIZON_LABEL[l.horizon]}</Td>
+                    <Td align="right" mono className={`border-r border-term-line font-medium ${signColor(l.pct)}`}>
+                      {fmtPct(l.pct)}
+                    </Td>
+                    <Td align="right" mono className="border-r border-term-line text-term-muted">
+                      {fmtPct(cumCpi)}
+                    </Td>
+                    <Td align="right" mono className={`border-r border-term-line font-medium ${signColor(realPct)}`}>
+                      {fmtPct(realPct)}
+                    </Td>
+                    <Td align="right" mono className={signColor(drag)}>
+                      {fmtPct(drag)}
+                    </Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

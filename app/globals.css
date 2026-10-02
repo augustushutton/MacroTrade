@@ -20,6 +20,12 @@
 
   --up: 0 120 90;
   --down: 192 58 18;
+  /* Brighter pair reserved for signColor's plain number/text colouring only
+     — see the .dark block below for the full reasoning. Deeper than the
+     dark theme's, same as every other token here, for contrast on a white
+     ground instead of near-black. */
+  --up-bright: 21 128 61;
+  --down-bright: 220 38 38;
   --warn: 140 92 5;
   --info: 3 105 161;
 }
@@ -75,90 +81,81 @@
      clearly darker than either. */
   --up: 20 110 62;     /* #146E3E, deep saturated green */
   --down: 150 28 28;   /* #961C1C, deep saturated red */
+
+  /* Brighter pair, on request, reserved for signColor's plain number/text
+     colouring ONLY — a bare "+2.4%" sitting on the ordinary panel
+     background with nothing behind it. --up/--down above stay this dark on
+     purpose and keep doing every OTHER job in the app: the solid block
+     fills (signFillBg/signFillFg), the Sensitivity heatmap (heatBg/heatFg),
+     and every chart (the Monte Carlo histogram, the two-variable surface's
+     gradient legend, SignedBar) — all of those need a fill dark enough that
+     white text stays legible on top of it, or a colour muted enough not to
+     fight the rest of the chart. Plain text has no such constraint (it sits
+     on the near-black ground, not on its own saturated fill), so it can
+     read as a real, punchy green/red the way a trader expects a live P&L
+     figure to. */
+  /* Pulled back a step on request ("a little darker and less neon") — from
+     Tailwind's green-500 (#22C55E) to green-600 (#16A34A): same hue, lower
+     lightness and a touch less saturation, so it reads as a confident green
+     rather than a glowing one.
+     Pulled back one more step on request ("slightly darker, number text
+     only") — green-600 (#16A34A) to green-700 (#15803D), red-500 (#EF4444)
+     to red-600 (#DC2626) — same hue each, one notch lower lightness. Still
+     only this bright pair moves; --up/--down above (the fills/heatmaps/
+     charts) are untouched, per the scoping note above. */
+  --up-bright: 21 128 61;    /* #15803D */
+  --down-bright: 220 38 38;  /* #DC2626 */
   --warn: 185 138 62;
   --info: 43 108 176;  /* #2B6CB0, flat muted blue for selection/focus */
 }
 
-/* Depth, on request — a fifth pass correcting course: the previous rounds'
-   soft multi-stop gradients and blurred ambient drop-shadows were reading
-   as generic "modern SaaS card" polish (soft glow, glassy sheen) rather
-   than an actual instrument's chrome — the thing this app has been asked
-   to look like (IB TWS classic, hard retro) doesn't glow. Real Windows/Java
-   Swing-era 3D chrome is built from flat, un-gradiented fills and crisp,
-   zero-blur bevel lines — a light step and a dark step, no falloff between
-   them. Every rule below drops background-image gradients entirely and
-   drops box-shadow blur radii to 0: depth now comes only from flat colour
-   plus hard-edged bevel, which is what actually reads as "hardware" instead
-   of "CSS effect." */
+/* Depth, on request — a sixth pass pushing further than the fifth's hairline
+   bevels toward an actually chunky, older piece of hardware: a 2010s flat
+   dashboard uses 1px hairlines; a 1990s Windows/Java Swing control used
+   bevels you could see from across the room. Every rule below keeps the
+   fifth pass's core discipline (flat fills, zero blur, no gradients — this
+   still doesn't glow) but widens the bevel lines themselves from 1px to 2px
+   and raises their contrast, plus thickens the outer two-tone border on
+   raised controls from 1px to 2px so a button or header bar reads as a
+   physical, stamped-metal face rather than a thin outline hinting at one. */
 @layer components {
   /* Bordered panels (Panel, VarForm's wrapper, PresetBar — anything built
      from the same "border-term-edge + bg-term-panel" pair) stay a flat
-     fill — no gradient — with only a hairline top highlight, zero blur.
-     Separation from the page comes from the two-tone bevel border below,
-     not from a drop shadow; nested trays in a real trading terminal are
-     flush against each other, not floating on a soft shadow. The compound
-     selector keeps this off things that merely share the panel background
-     without being a card — TopNav's header bar, a sticky table row —
-     since neither also carries border-term-edge. */
+     fill — no gradient — with only a top highlight, zero blur. Separation
+     from the page comes from the two-tone bevel border below, not from a
+     drop shadow; nested trays in a real trading terminal are flush against
+     each other, not floating on a soft shadow. The compound selector keeps
+     this off things that merely share the panel background without being a
+     card — TopNav's header bar, a sticky table row — since neither also
+     carries border-term-edge. */
   .border-term-edge.bg-term-panel {
     position: relative;
-    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.07);
-  }
-
-  /* Corner brackets — a pair of small L-marks standing clear of the panel's
-     opposite corners, on request for more "geometric appeal": the
-     instrument-panel/drafting-drawing convention for "this is a precisely
-     bounded region," not decoration borrowed from a template. Pure CSS on
-     the same compound selector, so every panel/ticket picks it up with no
-     component change; `position: relative` above gives these something to
-     anchor to without disturbing any existing absolutely-positioned child,
-     which all already have their own closer `relative` wrapper (SignedBar,
-     Select's chevron, the sensitivity heatmap's centre rule). Offset 3px
-     outside the border — enough of a gap to read as a separate mark rather
-     than just thickening the corner pixel, but still inside the 8px gutter
-     (VarForm's gap-2) between stacked panels, so it never collides with a
-     neighbour's own bracket. */
-  .border-term-edge.bg-term-panel::before,
-  .border-term-edge.bg-term-panel::after {
-    content: "";
-    position: absolute;
-    width: 7px;
-    height: 7px;
-    pointer-events: none;
-  }
-  .border-term-edge.bg-term-panel::before {
-    top: -3px;
-    left: -3px;
-    border-top: 1.25px solid rgb(var(--term-sub) / 0.7);
-    border-left: 1.25px solid rgb(var(--term-sub) / 0.7);
-  }
-  .border-term-edge.bg-term-panel::after {
-    bottom: -3px;
-    right: -3px;
-    border-bottom: 1.25px solid rgb(var(--term-sub) / 0.7);
-    border-right: 1.25px solid rgb(var(--term-sub) / 0.7);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.11);
   }
 
   /* Every "raised" surface — panel headers, GroupHeader bars, the stepper
      buttons in VarForm, a SignedBar's track — is a flat fill with a hard
-     top-lit / bottom-shadowed hairline pair, zero blur: the classic
-     "button face" bevel, not a glossy sheen. One rule, because it's one
-     visual idea applied everywhere the raised token already is. */
+     top-lit / bottom-shadowed band, zero blur: the classic "button face"
+     bevel, widened to 2px and pushed higher-contrast so it reads as a
+     stamped, physical edge rather than a thin outline — not a glossy
+     sheen. One rule, because it's one visual idea applied everywhere the
+     raised token already is. */
   .bg-term-raised {
     box-shadow:
-      inset 0 1px 0 0 rgb(255 255 255 / 0.22),
-      inset 0 -1px 0 0 rgb(0 0 0 / 0.8);
+      inset 0 2px 0 0 rgb(255 255 255 / 0.32),
+      inset 0 -2px 0 0 rgb(0 0 0 / 0.88);
   }
 
   /* Recessed fields — VarForm's numeric inputs, the delivery-path preview —
-     get the inverse hard bevel: a dark top/left corner and a faint light
-     bottom/right corner, zero blur, exactly inverted from the raised
-     button's bevel above — the standard Windows/Swing "sunken field"
-     convention, not a soft modern inset shadow. */
+     get the inverse hard bevel: a dark top/left band and a faint light
+     bottom/right band, widened to 2px and zero blur, exactly inverted from
+     the raised button's bevel above — the standard Windows/Swing "sunken
+     field" convention taken further into "you can feel the notch," not a
+     soft modern inset shadow. */
   .bg-term-input {
     box-shadow:
-      inset 1px 1px 0 0 rgb(0 0 0 / 0.9),
-      inset -1px -1px 0 0 rgb(255 255 255 / 0.05);
+      inset 2px 2px 0 0 rgb(0 0 0 / 0.92),
+      inset -2px -2px 0 0 rgb(255 255 255 / 0.09);
   }
 }
 
@@ -167,22 +164,28 @@
    "components", so a components-layer override here would silently lose.
    This two-tone bevel border is the main thing selling "hardware, not
    glow": a hard light edge top/left, a hard dark edge bottom/right — the
-   literal outset-button convention. Raised controls get the strong version
-   (what makes a toolbar button read as pressable); the static trays that
-   hold them (Panel/VarForm/PresetBar's own outer frame) get a quieter
+   literal outset-button convention, pushed to higher contrast than before
+   so it reads as a physical stamped edge. Border-WIDTH stays 1px here on
+   purpose, even though the bevel box-shadows above went to 2px: a
+   segmented control (TopNav's tabs, the Path/Horizon selector) butts its
+   buttons edge-to-edge with a `-ml-px` collapse that assumes a uniform 1px
+   border across both its active state (border-info, not this rule) and
+   its inactive one (this rule) — widening only the inactive border would
+   throw that collapse out of alignment. The static trays that hold these
+   controls (Panel/VarForm/PresetBar's own outer frame) get a quieter
    version of the same two-tone edge, because the window itself is also a
    physical tray in a real terminal, just calmer than the buttons on it. */
 .border-term-edge.bg-term-raised {
-  border-top-color: rgb(255 255 255 / 0.32);
-  border-left-color: rgb(255 255 255 / 0.2);
-  border-bottom-color: rgb(0 0 0 / 0.85);
-  border-right-color: rgb(0 0 0 / 0.7);
+  border-top-color: rgb(255 255 255 / 0.5);
+  border-left-color: rgb(255 255 255 / 0.34);
+  border-bottom-color: rgb(0 0 0 / 0.92);
+  border-right-color: rgb(0 0 0 / 0.85);
 }
 .border-term-edge.bg-term-panel {
-  border-top-color: rgb(255 255 255 / 0.13);
-  border-left-color: rgb(255 255 255 / 0.08);
-  border-bottom-color: rgb(0 0 0 / 0.55);
-  border-right-color: rgb(0 0 0 / 0.45);
+  border-top-color: rgb(255 255 255 / 0.16);
+  border-left-color: rgb(255 255 255 / 0.1);
+  border-bottom-color: rgb(0 0 0 / 0.6);
+  border-right-color: rgb(0 0 0 / 0.5);
 }
 
 @layer base {
@@ -237,6 +240,32 @@
   }
 }
 
+/* Whole-app scale-up, on request ("scale everything up a little bit so it
+   fully covers the screen") — the page's real content (TopNav + the Builder
+   page's panels) was narrower than a typical desktop viewport, leaving bare
+   .term-bg below/beside it. `zoom` would do this in one property, but it's
+   historically unsupported in Firefox; `transform: scale()` is the
+   cross-browser way to do the same thing, it just needs two things paired
+   with it to behave like `zoom` rather than like a cosmetic hover effect:
+   `transform-origin: top left` so the content grows away from the corner
+   TopNav already anchors to (the default centre origin would grow the page
+   off-screen in all four directions), and a `width` pre-divided by the same
+   factor so the post-transform rendered box is exactly 100% of the parent
+   again — a transform never changes layout/reflow math, only the painted
+   pixels, so without the width correction the browser would still reserve
+   (and the max-w-[1920px] cap would still measure) the PRE-scale width,
+   leaving dead space on the right exactly as wide as this was meant to
+   remove. This only enlarges real content, not blank space, so it doesn't
+   contradict providers.tsx's "never artificially stretch empty space"
+   stance — Tailwind's own responsive breakpoints are untouched by this,
+   since they key off the real browser viewport width via media queries, not
+   off this element's own (intentionally pre-shrunk) box width. */
+.app-scale {
+  width: calc(100% / 1.15);
+  transform: scale(1.15);
+  transform-origin: top left;
+}
+
 /* Change-flash: a brief background tint on a cell whose value just moved.
    Fires once per move, not on mount or on a restored session (gated by the
    `active` flag in useFlash, ui.tsx). */
@@ -281,6 +310,8 @@
     --term-text: 14 16 19;
     --up: 0 110 82;
     --down: 176 48 40;
+    --up-bright: 21 128 61;
+    --down-bright: 220 38 38;
     --warn: 133 87 5;
     --info: 3 90 140;
   }

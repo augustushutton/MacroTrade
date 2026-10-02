@@ -41,8 +41,7 @@ const fullSession: SessionState = {
   open: { Growth: true, Policy: false },
   pinned: ["SPX", "UST10Y"],
   presetOpen: { Growth: true, Inflation: false, "Credit & Liquidity": true },
-  compareGroup: "Rates",
-  narrativeGroupTab: "bonds",
+  narrativeGroupTab: "corporate-bonds",
   sensitivityXVar: "fedFunds",
   sensitivityYVar: "cpiCore",
   pnlOpenSectors: true,
@@ -65,8 +64,7 @@ describe("session persistence of per-view UI state", () => {
     expect(loaded).not.toBeNull();
     expect(loaded).toMatchObject({
       presetOpen: fullSession.presetOpen,
-      compareGroup: "Rates",
-      narrativeGroupTab: "bonds",
+      narrativeGroupTab: "corporate-bonds",
       sensitivityXVar: "fedFunds",
       sensitivityYVar: "cpiCore",
       pnlOpenSectors: true,
@@ -98,7 +96,6 @@ describe("session persistence of per-view UI state", () => {
     // field is actually present (see the `if (s.xyz)` guards there), so
     // undefined/null here is what keeps each view's sensible default intact.
     expect(loaded!.presetOpen).toBeUndefined();
-    expect(loaded!.compareGroup).toBeUndefined();
     expect(loaded!.narrativeGroupTab).toBeUndefined();
     expect(loaded!.pnlSortKey).toBeNull();
     expect(loaded!.pnlSortDir).toBeUndefined();

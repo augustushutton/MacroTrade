@@ -3,7 +3,7 @@ import {
   COMMODITY_BETAS,
   DERIVED_COMMODITY,
   DERIVED_EQUITY,
-  DXY_BETAS,
+  USDCAD_BETAS,
   EQUITY_CHANNELS,
   FX_PAIRS,
   MULTIPLE_PIN_VAR,
@@ -14,7 +14,7 @@ import {
   type Beta,
 } from "./elasticities";
 import { detectRegime, regimeMultiplier, saturateMultiplier, type Channel, type RegimeDetection, type RegimeId } from "./regimes";
-import { HORIZONS, responseWeight, responseWeightAt, type Horizon, type PathShape } from "./paths";
+import { LADDER_HORIZONS, responseWeight, responseWeightAt, type Horizon, type PathShape } from "./paths";
 import { PORTFOLIOS, portfolioWeights, DEFAULT_NOTIONAL, type Portfolio } from "./portfolios";
 import {
   FACTOR_BY_ID,
@@ -456,32 +456,59 @@ export function runScenario(input: ScenarioInput, evalMonths?: number): EngineRe
       regime: R,
       weight: weights.rate,
     });
+    // YieldCurveChart's four tenor points (ust2yYield/ust5yYield/ust10yYield/
+    // ust30yYield in lib/vars.ts) pin this tenor to a dragged yield level the
+    // same way an FX pair or a credit OAS can be set directly elsewhere in
+    // this file — REPLACING the factor model's own estimate for this one
+    // tenor, not adding to it, so the chart always shows exactly the number
+    // the user dragged to rather than that number plus whatever Fed Funds/
+    // breakevens/etc. would otherwise have implied for the same point.
+    const pinVar = findPinVar(id);
+    let pin: { value: number; note: string } | undefined;
+    let effective = value;
+    if (pinVar) {
+      const moved = rawMove(state, pinVar);
+      if (moved !== 0) {
+        // `moved` is already in percentage points of yield (the variable's
+        // own unit); *100 converts straight to the bp this channel is
+        // modelled in — no /base scaling like USD/CAD's price-return pin
+        // needs, since this is an absolute level, not a ratio.
+        pin = { value: moved * 100, note: "Yield set directly on the curve chart" };
+        effective = pin.value;
+      }
+    }
     const r = out[id];
-    r.channels = [channelOf("rate", value, terms)];
-    r.yieldBp = value;
-    r.rateLegBp = value;
-    r.pricePct = priceFromYield(a.duration ?? 0, value);
-    sources[id] = value;
+    r.channels = [channelOf("rate", effective, terms, pin)];
+    r.pinned = !!pin;
+    r.yieldBp = effective;
+    r.rateLegBp = effective;
+    r.pricePct = priceFromYield(a.duration ?? 0, effective);
+    sources[id] = effective;
   }
   sources.CURVE_2S10S = (sources.UST10Y ?? 0) - (sources.UST2Y ?? 0);
 
-  // ---- 2. Dollar ----------------------------------------------------------
+  // ---- 2. Dollar ------------------------------------------------------------
+  // USD/CAD stands in for the old broad dollar index (DXY) as the one latent
+  // dollar factor computed here, ahead of commodities (stage 3) and every
+  // other FX pair (stage 4) — both read it from `sources` below. See the "FX"
+  // section of lib/elasticities.ts for why USD/CAD's own regression
+  // (USDCAD_BETAS) looks different from a trade-weighted basket's.
   {
-    const { value, terms } = sumVarBetas(DXY_BETAS, state, {
-      assetId: "DXY",
+    const { value, terms } = sumVarBetas(USDCAD_BETAS, state, {
+      assetId: "USDCAD",
       kind: "fx",
       channel: "price",
       regime: R,
       weight: weights.price,
     });
-    const moved = rawMove(state, "dxy");
-    const base = VAR_BY_ID.dxy.base;
+    const moved = rawMove(state, "usdcad");
+    const base = VAR_BY_ID.usdcad.base;
     const pin = moved !== 0 ? { value: (moved / base) * 100, note: "Set directly as an assumption" } : undefined;
-    const r = out.DXY;
+    const r = out.USDCAD;
     r.channels = [channelOf("price", value, terms, pin)];
     r.pinned = !!pin;
     r.pricePct = priceOf(r.channels);
-    sources.DXY = r.pricePct;
+    sources.USDCAD = r.pricePct;
   }
 
   // ---- 3. Commodities -----------------------------------------------------
@@ -542,17 +569,17 @@ export function runScenario(input: ScenarioInput, evalMonths?: number): EngineRe
       weight: weights.price,
     });
     const second = sumSecondRound(sources, id, "price", { kind: "fx", regime: R, weight: weights.price });
-    const dollarLeg = (sources.DXY ?? 0) * def.dxyBeta;
+    const dollarLeg = (sources.USDCAD ?? 0) * def.usdcadBeta;
     // As with the index beta below, the dollar leg is a decomposition rather
     // than a corroborating view, so it stands outside the shrinkage.
     const mergedFx = mergeTiers(own, second);
     const terms: Term[] = [
       {
-        driver: "DXY",
-        label: "DXY",
+        driver: "USDCAD",
+        label: "USD/CAD",
         source: "asset",
-        shock: sources.DXY ?? 0,
-        beta: def.dxyBeta,
+        shock: sources.USDCAD ?? 0,
+        beta: def.usdcadBeta,
         mult: 1,
         value: dollarLeg,
         reasons: ["Latent dollar factor, signed by the pair's quote convention"],
@@ -867,11 +894,48 @@ export function heatGrid(
   return { xVar, yVar, xs, ys, cells, min, max };
 }
 
-/** Same scenario priced at all four horizons, for the term-structure strip. */
-export function horizonLadder(input: ScenarioInput, portfolioId: string): Array<{ horizon: Horizon; pct: number }> {
-  return HORIZONS.map((h) => {
+/**
+ * Cumulative inflation implied by holding the scenario's own Headline CPI YoY
+ * level flat over a horizon of `months` months. Surfaced as its own function
+ * (not folded silently into realReturn) so the UI can show how much of a
+ * scenario's real drag is the inflation assumption itself, separately from
+ * the nominal shock.
+ */
+export function cumulativeInflation(annualCpiPct: number, months: number): number {
+  return (Math.pow(1 + annualCpiPct / 100, months / 12) - 1) * 100;
+}
+
+/**
+ * Real, inflation-adjusted counterpart to a nominal scenario return. Deflates
+ * by the scenario's own Headline CPI YoY assumption — the variable already
+ * shown throughout the rest of the app, not a second inflation forecast
+ * invented for this one figure. The model has no CPI PATH, only a YoY level
+ * the scenario holds fixed, so compounding that level out to a 2-year
+ * horizon assumes inflation keeps running at today's shocked rate for the
+ * whole period; that simplification is stated here rather than presented as
+ * if the model had an inflation term structure it does not have.
+ */
+export function realReturn(nominalPct: number, annualCpiPct: number, months: number): number {
+  const nominal = 1 + nominalPct / 100;
+  const inflation = 1 + cumulativeInflation(annualCpiPct, months) / 100;
+  return (nominal / inflation - 1) * 100;
+}
+
+/** Same scenario priced at every rung of LADDER_HORIZONS (lib/paths.ts), for
+ *  the term-structure strip — a longer, Sensitivity-page-only list than the
+ *  global Delivery selector's four. `realPct` is the same figure deflated by
+ *  the scenario's own Headline CPI YoY (see realReturn), and `cpiUsed` is
+ *  that same CPI level, repeated on every rung, so a caller can show the
+ *  deflator without re-deriving it. */
+export function horizonLadder(
+  input: ScenarioInput,
+  portfolioId: string,
+): Array<{ horizon: Horizon; pct: number; realPct: number; cpiUsed: number }> {
+  const cpi = input.state.cpiHeadline ?? VAR_BY_ID.cpiHeadline.base;
+  return LADDER_HORIZONS.map((h) => {
     const r = runScenario({ ...input, horizon: h });
-    return { horizon: h, pct: r.portfolios.find((p) => p.id === portfolioId)?.pct ?? 0 };
+    const pct = r.portfolios.find((p) => p.id === portfolioId)?.pct ?? 0;
+    return { horizon: h, pct, realPct: realReturn(pct, cpi, h), cpiUsed: cpi };
   });
 }
 

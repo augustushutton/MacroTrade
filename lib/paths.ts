@@ -17,7 +17,14 @@ import type { Channel } from "./regimes";
 // honest answer and is not reproducible by multiplying two scalars.
 
 export type PathShape = "immediate" | "linear" | "scurve" | "meanRevert" | "staged";
-export type Horizon = 3 | 6 | 12 | 24;
+// 36/48 (3Y/4Y) exist only for the Sensitivity page's Horizon Ladder term
+// structure (see LADDER_HORIZONS below) — the global Delivery horizon
+// selector (HORIZONS, read by Controls.tsx's HorizonSelector) deliberately
+// stays at the original four so this doesn't also grow that control. Both
+// live on the same type since every Horizon-typed function here (TAU/LAMBDA-
+// driven response kernels) is already a continuous function of months with
+// no restriction to any particular set of them.
+export type Horizon = 3 | 6 | 12 | 24 | 36 | 48;
 
 export interface PathDef {
   id: PathShape;
@@ -73,7 +80,12 @@ export const PATH_BY_ID: Record<PathShape, PathDef> = Object.fromEntries(
 ) as Record<PathShape, PathDef>;
 
 export const HORIZONS: Horizon[] = [3, 6, 12, 24];
-export const HORIZON_LABEL: Record<Horizon, string> = { 3: "3M", 6: "6M", 12: "1Y", 24: "2Y" };
+/** The Horizon Ladder's own, longer term structure — see horizonLadder in
+ *  lib/engine.ts, the only reader. Extends HORIZONS with two more years
+ *  rather than lengthening HORIZONS itself, which stays reserved for the
+ *  global Delivery selector. */
+export const LADDER_HORIZONS: Horizon[] = [3, 6, 12, 24, 36, 48];
+export const HORIZON_LABEL: Record<Horizon, string> = { 3: "3M", 6: "6M", 12: "1Y", 24: "2Y", 36: "3Y", 48: "4Y" };
 export const STEP_CHOICES = [4, 6, 8, 12] as const;
 
 /**

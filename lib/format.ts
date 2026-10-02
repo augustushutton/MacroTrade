@@ -6,7 +6,13 @@
 
 export function signColor(v: number, dead = 0.005): string {
   if (!Number.isFinite(v) || Math.abs(v) < dead) return "text-term-sub";
-  return v > 0 ? "text-up" : "text-down";
+  // text-up-bright/text-down-bright, not text-up/text-down: this is the one
+  // place a number is coloured with nothing behind it but the ordinary panel
+  // background, so it can afford to be a real, punchy green/red. text-up/
+  // text-down stay reserved for the dark, fill-safe pair used everywhere a
+  // colour sits UNDER white text or alongside a chart (see globals.css's
+  // --up-bright/--down-bright comment).
+  return v > 0 ? "text-up-bright" : "text-down-bright";
 }
 
 /** Sign glyph used in tables. Plain ASCII; no unicode arrows. */
@@ -54,10 +60,38 @@ export function fmtSigned(v: number, dp = 2): string {
   return `${sign(v, 10 ** -dp / 2)}${v.toFixed(dp)}`;
 }
 
+/** Signed display for how far a variable has moved from its base, used
+ *  everywhere a variable's move is shown — Builder's delta badges,
+ *  Sensitivity's Leave-One-Out Move column, Derivation's Inputs Moved Move
+ *  column — so the same move reads the same way on every page instead of
+ *  mixing bp/idx/x/$bn/mo/% GDP/sd/px/pts/% depending which table you're
+ *  looking at. Expressed as a percentage of the variable's base magnitude
+ *  (dividing by |base| rather than base itself, so a variable with a
+ *  negative base — e.g. Current Account — still shows a positive percentage
+ *  for a raw increase, matching what every other sign convention on these
+ *  pages already does).
+ *
+ *  A handful of variables (Forward Guidance, Regional Fed Composite,
+ *  Revision Breadth, US Terms of Trade, Energy Supply Shock) have a base of
+ *  exactly 0, so "percent of base" is undefined for them — they keep their
+ *  original native-unit delta display instead. */
+export function fmtVarDelta(v: { base: number; dp: number; unit: string }, d: number): string {
+  if (!Number.isFinite(d)) return "n/a";
+  if (v.base === 0) {
+    const s = fmtSigned(d, v.dp);
+    const label = unitLabel(v.unit);
+    if (label === "") return s;
+    if (label === "%" || label === "bp" || label === "x") return `${s}${label}`;
+    if (label.startsWith("%")) return `${s}%${label.slice(1)}`;
+    return `${s} ${label}`;
+  }
+  return fmtPct((d / Math.abs(v.base)) * 100, 1);
+}
+
 /** Display label for a variable's internal `unit` token. A couple of tokens
  *  are internal shorthand that reads as unexplained jargon wherever a value
- *  is actually shown to a trader: "idx" (an index-level move — VIX, DXY,
- *  PMI diffusion indices, ...) and "px" (a raw FX quote-price delta, e.g.
+ *  is actually shown to a trader: "idx" (an index-level move — VIX, PMI
+ *  diffusion indices, ...) and "px" (a raw FX quote-price delta, e.g.
  *  EUR/USD +0.0050). "idx" becomes the standard, self-evident "pts"; "px"
  *  is dropped to "" (empty), since the surrounding context — the row/column
  *  label, plus the base/live values already shown alongside it — already
@@ -93,23 +127,29 @@ export function heatFg(v: number, max: number): string {
   const base = "rgb(var(--term-text))";
   if (!Number.isFinite(v) || max <= 0) return base;
   const a = Math.min(0.85, (Math.abs(v) / max) * 0.85);
-  // At high fill opacity the cell is saturated enough that near-black text
-  // reads better than near-white on top of a bright up/down tint.
-  return a > 0.5 ? "rgb(8 10 14)" : base;
+  // At high fill opacity the cell is a deep, saturated up/down colour (dark
+  // green or dark red in both themes — these are deliberately dark hues, not
+  // bright ones) blended over the panel background. Near-black text on that
+  // was actually the bug being fixed here: it nearly vanished into the dark
+  // red/green fill. White stays legible against both.
+  return a > 0.5 ? "rgb(255 255 255)" : base;
 }
 
 /**
- * Solid-fill "watchlist" cell treatment, on request — Interactive Brokers'
- * own watchlist colours its CHANGE column as a full block of solid green or
- * red, not coloured text on the row's own background, and that block-of-
- * colour read is a real, distinct convention from signColor's text-only
- * one. Fixed opacity rather than heatBg's magnitude scaling (there's no
- * "how big was the move" context here, just direction), but reusing
- * heatFg's same high-opacity contrast flip so the two fill treatments in
- * the app stay visually consistent with each other. Returns inline-style
- * values (not Tailwind classes) since the two colours are picked from the
- * same runtime --up/--down custom properties as every other colour in the
- * app, the same reasoning as heatBg/heatFg above.
+ * Solid-fill "watchlist" cell treatment — Interactive Brokers' own watchlist
+ * colours its CHANGE column as a full block of solid green or red, not
+ * coloured text on the row's own background, and that block-of-colour read
+ * is a real, distinct convention from signColor's text-only one. Fixed
+ * opacity rather than heatBg's magnitude scaling (there's no "how big was
+ * the move" context here, just direction). Returns inline-style values (not
+ * Tailwind classes) since the two colours are picked from the same runtime
+ * --up/--down custom properties as every other colour in the app, the same
+ * reasoning as heatBg/heatFg above.
+ *
+ * signFillFg returns white, not near-black: near-black text on this fill was
+ * the original legibility bug (see heatFg's comment above for the same fix
+ * on the Sensitivity heatmap) — at 0.55 opacity the fill is a deep, dark
+ * green/red in both themes, and near-black nearly vanishes into it.
  */
 export function signFillBg(v: number, dead = 0.005): string {
   if (!Number.isFinite(v) || Math.abs(v) < dead) return "transparent";
@@ -117,5 +157,6 @@ export function signFillBg(v: number, dead = 0.005): string {
 }
 export function signFillFg(v: number, dead = 0.005): string {
   if (!Number.isFinite(v) || Math.abs(v) < dead) return "rgb(var(--term-sub))";
-  return "rgb(8 10 14)";
+  return "rgb(255 255 255)";
 }
+

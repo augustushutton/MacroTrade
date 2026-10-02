@@ -35,60 +35,10 @@ export const PRESET_GROUPS = [
 
 export const PRESETS: Preset[] = [
   // ---- Policy --------------------------------------------------------------
-  {
-    id: "fed_25",
-    label: "Fed +25bp",
-    group: "Policy",
-    gist: "Single insurance hike, guidance unchanged",
-    set: { fedFunds: 4.25, forwardGuidance: 0.25, realRate10y: 2.0 },
-    path: "immediate",
-    horizon: 3,
-  },
-  {
-    id: "fed_50",
-    label: "Fed +50bp",
-    group: "Policy",
-    gist: "Two hikes priced, front end leads",
-    set: { fedFunds: 4.5, forwardGuidance: 0.5, realRate10y: 2.1, vix: 17 },
-    path: "staged",
-    horizon: 6,
-  },
-  {
-    id: "fed_75",
-    label: "Fed +75bp",
-    group: "Policy",
-    gist: "Restrictive turn with a growth cost",
-    set: { fedFunds: 4.75, forwardGuidance: 1.0, realRate10y: 2.25, vix: 19, gdpGrowth: 1.4, fciComposite: 0.5 },
-    path: "staged",
-    horizon: 6,
-  },
-  {
-    id: "fed_100",
-    label: "Fed +100bp",
-    group: "Policy",
-    gist: "Full hiking cycle: curve flattens, conditions tighten, growth slows",
-    set: {
-      fedFunds: 5.0,
-      forwardGuidance: 1.5,
-      realRate10y: 2.4,
-      vix: 21,
-      gdpGrowth: 1.0,
-      fciComposite: 0.8,
-      igSpread: 115,
-      dxy: 106,
-    },
-    path: "scurve",
-    horizon: 12,
-  },
-  {
-    id: "fed_cut_100",
-    label: "Fed −100bp",
-    group: "Policy",
-    gist: "Easing cycle into a soft patch, not a crisis",
-    set: { fedFunds: 3.0, forwardGuidance: -1.25, realRate10y: 1.4, gdpGrowth: 1.5, unemployment: 4.6, dxy: 100 },
-    path: "scurve",
-    horizon: 12,
-  },
+  // The five Fed-hike/cut presets and BoE +100bp were removed by request,
+  // leaving the three non-Fed policy moves: a foreign central bank tightening
+  // with no Fed response (ECB), a foreign central bank normalising policy
+  // (BoJ), and balance-sheet runoff with no policy-rate move at all (QT).
   {
     id: "ecb_75",
     label: "ECB +75bp",
@@ -108,20 +58,11 @@ export const PRESETS: Preset[] = [
     horizon: 12,
   },
   {
-    id: "boe_100",
-    label: "BoE +100bp",
-    group: "Policy",
-    gist: "Sticky UK services inflation forces the Bank's hand",
-    set: { boeBank: 4.75, gbpusd: 1.31 },
-    path: "staged",
-    horizon: 6,
-  },
-  {
     id: "qt_accel",
     label: "QT Acceleration",
     group: "Policy",
     gist: "Runoff doubles; term premium rebuilds without a policy-rate move",
-    set: { qtPace: 90, fedBalanceSheet: 19, realRate10y: 2.3, fciComposite: 0.6 },
+    set: { qtPace: 90, fedBalanceSheet: 19, realRate10y: 2.3 },
     path: "linear",
     horizon: 12,
   },
@@ -129,7 +70,7 @@ export const PRESETS: Preset[] = [
   // ---- Inflation -----------------------------------------------------------
   {
     id: "infl_sudden",
-    label: "Inflation Shock: Sudden",
+    label: "Sudden Inflation",
     group: "Inflation",
     gist: "Prints reaccelerate in one quarter; expectations follow",
     set: {
@@ -149,7 +90,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "infl_gradual",
-    label: "Inflation Shock: Gradual",
+    label: "Gradual Inflation",
     group: "Inflation",
     gist: "Same terminal inflation, delivered over a year",
     set: {
@@ -198,54 +139,13 @@ export const PRESETS: Preset[] = [
   },
 
   // ---- Growth --------------------------------------------------------------
-  {
-    id: "soft_landing",
-    label: "Soft Landing",
-    group: "Growth",
-    gist: "Inflation normalises without a labour-market break",
-    set: {
-      cpiHeadline: 2.3,
-      cpiCore: 2.4,
-      pceCore: 2.2,
-      gdpGrowth: 1.8,
-      unemployment: 4.4,
-      pmiMfg: 51,
-      pmiSvcs: 54,
-      fedFunds: 3.5,
-      forwardGuidance: -0.5,
-      realRate10y: 1.6,
-      vix: 14,
-      earningsGrowth: 8,
-    },
-    path: "linear",
-    horizon: 12,
-  },
-  {
-    id: "goldilocks",
-    label: "Goldilocks",
-    group: "Growth",
-    gist: "Productivity absorbs wage growth; multiples expand",
-    set: {
-      cpiCore: 2.2,
-      cpiHeadline: 2.1,
-      pceCore: 2.0,
-      gdpGrowth: 2.9,
-      productivity: 2.6,
-      unemployment: 4.0,
-      pmiMfg: 54,
-      pmiSvcs: 57,
-      earningsGrowth: 14,
-      earningsRevisions: 12,
-      vix: 12,
-      igSpread: 82,
-      hyBBSpread: 185,
-    },
-    path: "linear",
-    horizon: 12,
-  },
+  // Soft Landing and Goldilocks were removed by request, leaving the two
+  // recession presets plus Energy Supply Shock, moved in from External below
+  // (a supply shock is a growth story here — termsOfTrade/gdpGrowth both move
+  // — as much as it is an external one).
   {
     id: "recession_pmi",
-    label: "Recession: Demand Collapse",
+    label: "Demand-Pull Recession",
     group: "Growth",
     gist: "Orders and output roll first; labour follows late",
     set: {
@@ -265,14 +165,13 @@ export const PRESETS: Preset[] = [
       igSpread: 165,
       hyBBSpread: 420,
       hyBCCCSpread: 950,
-      fciComposite: 1.1,
     },
     path: "scurve",
     horizon: 12,
   },
   {
     id: "recession_labour",
-    label: "Recession: Labour Break",
+    label: "Labour Recession",
     group: "Growth",
     gist: "Unemployment gaps higher; the consumer stops",
     set: {
@@ -293,61 +192,14 @@ export const PRESETS: Preset[] = [
       igSpread: 190,
       hyBBSpread: 500,
       hyBCCCSpread: 1150,
-      fciComposite: 1.4,
     },
     path: "scurve",
     horizon: 24,
   },
-
-  // ---- Credit & liquidity --------------------------------------------------
-  {
-    id: "credit_crisis",
-    label: "Credit Crisis",
-    group: "Credit & Liquidity",
-    gist: "Funding stress, not a growth forecast, sets prices",
-    set: {
-      vix: 44,
-      igSpread: 260,
-      hyBBSpread: 720,
-      hyBCCCSpread: 1650,
-      fciComposite: 2.6,
-      emStress: 7.5,
-      gdpGrowth: -1.0,
-      unemployment: 5.1,
-      earningsRevisions: -30,
-      fedFunds: 3.0,
-      forwardGuidance: -2.0,
-      fedBalanceSheet: 25,
-      qtPace: 0,
-      dxy: 108,
-    },
-    path: "immediate",
-    horizon: 6,
-  },
-  {
-    id: "liquidity_squeeze",
-    label: "Liquidity Squeeze",
-    group: "Credit & Liquidity",
-    gist: "Balance-sheet withdrawal with no credit event behind it",
-    set: { qtPace: 130, fedBalanceSheet: 17, fciComposite: 1.5, vix: 27, igSpread: 150, realRate10y: 2.5, dxy: 108 },
-    path: "linear",
-    horizon: 12,
-  },
-  {
-    id: "vol_shock",
-    label: "Volatility Shock",
-    group: "Credit & Liquidity",
-    gist: "Positioning unwind; risk premium repricing with clean fundamentals",
-    set: { vix: 38, fciComposite: 1.6, hyBCCCSpread: 880, igSpread: 140, usdjpy: 141 },
-    path: "meanRevert",
-    horizon: 6,
-  },
-
-  // ---- External ------------------------------------------------------------
   {
     id: "oil_spike",
     label: "Energy Supply Shock",
-    group: "External",
+    group: "Growth",
     gist: "Supply withdrawn, not demand added; equities and oil move opposite ways",
     set: {
       energySupply: 28,
@@ -363,35 +215,69 @@ export const PRESETS: Preset[] = [
     path: "immediate",
     horizon: 6,
   },
+
+  // ---- Credit & liquidity --------------------------------------------------
   {
-    id: "em_crisis",
-    label: "EM Currency Crisis",
-    group: "External",
-    gist: "Dollar funding squeeze concentrated outside the G3",
+    id: "credit_crisis",
+    label: "Credit Shortage",
+    group: "Credit & Liquidity",
+    gist: "Funding stress, not a growth forecast, sets prices",
     set: {
-      emStress: 8.5,
-      dxy: 112,
-      usdmxn: 22.5,
-      usdbrl: 6.8,
-      usdcny: 7.55,
-      vix: 30,
-      hyBCCCSpread: 900,
-      igSpread: 150,
-      gdpGrowth: 1.2,
+      vix: 44,
+      igSpread: 260,
+      hyBBSpread: 720,
+      hyBCCCSpread: 1650,
+      gdpGrowth: -1.0,
+      unemployment: 5.1,
+      earningsRevisions: -30,
+      fedFunds: 3.0,
+      forwardGuidance: -2.0,
+      fedBalanceSheet: 25,
+      qtPace: 0,
+      // +4.85%, the same dollar-strength move the old DXY shock (103 -> 108)
+      // meant, carried over onto USD/CAD's own base (1.36 -> 1.426) rather
+      // than reused as a literal level that would mean something completely
+      // different on this pair's scale.
+      usdcad: 1.426,
     },
     path: "immediate",
     horizon: 6,
   },
   {
+    id: "liquidity_squeeze",
+    label: "Liquidity Shortage",
+    group: "Credit & Liquidity",
+    gist: "Balance-sheet withdrawal with no credit event behind it",
+    // Same +4.85% dollar-strength move as Credit Shortage above.
+    set: { qtPace: 130, fedBalanceSheet: 17, vix: 27, igSpread: 150, realRate10y: 2.5, usdcad: 1.426 },
+    path: "linear",
+    horizon: 12,
+  },
+  {
+    id: "vol_shock",
+    label: "Volatility Spike",
+    group: "Credit & Liquidity",
+    gist: "Positioning unwind; risk premium repricing with clean fundamentals",
+    set: { vix: 38, hyBCCCSpread: 880, igSpread: 140, usdjpy: 141 },
+    path: "meanRevert",
+    horizon: 6,
+  },
+
+  // ---- External ------------------------------------------------------------
+  // Energy Supply Shock moved to Growth above; EM Currency Crisis removed by
+  // request.
+  {
     id: "dollar_debasement",
-    label: "Dollar Debasement",
+    label: "Twin Deficit Shock",
     group: "External",
     gist: "Fiscal path, not growth, drives the dollar and the long end",
     set: {
       deficitGdp: 9.5,
       debtGdp: 140,
       currentAccount: -5.2,
-      dxy: 93,
+      // -9.71%, the same dollar-weakness move the old DXY shock (103 -> 93)
+      // meant, carried over onto USD/CAD's own base (1.36 -> 1.228).
+      usdcad: 1.228,
       be10y: 2.9,
       realRate10y: 2.4,
       fedBalanceSheet: 26,
@@ -401,7 +287,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "commodity_bull",
-    label: "Commodity Super-Cycle: Bull",
+    label: "Bull Commodity Cycle",
     group: "External",
     gist: "Global capex cycle with a soft dollar",
     set: {
@@ -409,7 +295,9 @@ export const PRESETS: Preset[] = [
       pmiMfg: 56,
       pmiSvcs: 56,
       usdcny: 6.85,
-      dxy: 95,
+      // -7.77%, the same dollar-weakness move the old DXY shock (103 -> 95)
+      // meant, carried over onto USD/CAD's own base (1.36 -> 1.254).
+      usdcad: 1.254,
       cpiHeadline: 3.6,
       cpiCore: 3.2,
       be5y: 2.7,
@@ -421,17 +309,18 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "commodity_bear",
-    label: "Commodity Super-Cycle: Bear",
+    label: "Bear Commodity Cycle",
     group: "External",
     gist: "Supply glut and a China demand air pocket",
     set: {
       energySupply: -14,
       usdcny: 7.6,
-      emStress: 5.5,
       pmiMfg: 46,
       gdpGrowth: 1.2,
       cpiHeadline: 1.4,
-      dxy: 107,
+      // +3.88%, the same dollar-strength move the old DXY shock (103 -> 107)
+      // meant, carried over onto USD/CAD's own base (1.36 -> 1.413).
+      usdcad: 1.413,
       termsOfTrade: 5,
     },
     path: "linear",

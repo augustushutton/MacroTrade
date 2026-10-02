@@ -18,7 +18,7 @@ import Providers from "./providers";
 // of inconsistency.
 export const metadata: Metadata = {
   title: `MacroTrade — ${NAV[0].pageTitle}`,
-  description: "Cross-asset macro scenario and stress-testing engine.",
+  description: "A macroeconomic planner for investors, traders, and researchers.",
 };
 
 // Matches mobile browser chrome (address bar, tab strip) to the app's dark
