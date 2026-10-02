@@ -222,8 +222,20 @@ export default function SensitivityTab({
         )}
       </Panel>
 
-      <div className="grid grid-cols-[1fr_260px] gap-0">
+      {/* Single column below `md` (phones, portrait tablets) — side-by-side
+          at 1fr/260px is comfortable on a desktop monitor but leaves the
+          heatmap too narrow a sliver to be worth it on a phone; stacking
+          instead gives Two-Variable Surface its full width and puts Horizon
+          Ladder/Inflation Assumption right below it. `min-w-0` on both
+          children is what actually lets either column shrink below its
+          content's intrinsic width — without it a grid track won't shrink
+          past its content's min-content size, which silently defeats the
+          `overflow-x-auto` wrappers inside (the table/Panel-header would
+          just force the grid, and the whole page, wider instead of
+          scrolling in place). */}
+      <div className="grid grid-cols-1 gap-0 md:grid-cols-[1fr_260px]">
         <Panel
+          className="min-w-0"
           title="Two-Variable Surface"
           right={
             <div className="flex items-center gap-1">

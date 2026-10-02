@@ -192,7 +192,11 @@ export default function NarrativeTab({
           this was a second, separate listing of the same inputs rather than
           something load-bearing on its own. */}
       <Panel title={GROUP_TABS.find((t) => t.id === activeGroupTab)!.label}>
-        <div className="flex items-center gap-1 border-b border-term-edge px-1.5 py-1">
+        {/* overflow-x-auto: six group tabs (Indices/Sectors/FX/Corporate
+            Bonds/Government Bonds/Commodities) don't all fit on a phone
+            width — same "scroll in place instead of forcing the page wider"
+            treatment as TopNav and the dense data tables. */}
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-term-edge px-1.5 py-1">
           {GROUP_TABS.map((t) => (
             <Btn key={t.id} active={activeGroupTab === t.id} onClick={() => setActiveGroupTab(t.id)}>
               {t.label}

@@ -25,9 +25,19 @@ export function Panel({
   return (
     <section className={`border border-term-edge bg-term-panel ${className}`}>
       {title ? (
-        <header className="flex items-center justify-between border-b border-term-edge bg-term-raised px-2 py-1">
+        // `flex-wrap` lets `right` (often a row of selects/segmented
+        // buttons — see the ~6 call sites that pass it) drop to its own
+        // line under the title instead of forcing this header, and
+        // everything that sizes off it, wider than the viewport on a phone.
+        // Zero effect wherever there's room for one line, which is every
+        // desktop width this was designed at. The `right` wrapper's own
+        // `min-w-0 overflow-x-auto` is a second line of defence for the
+        // rare case where `right` is still too wide even alone on its own
+        // line (e.g. two long dropdowns) — it scrolls in place rather than
+        // re-widening the header.
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-term-edge bg-term-raised px-2 py-1">
           <h2 className="text-th font-semibold uppercase tracking-wide text-term-sub">{title}</h2>
-          {right}
+          {right ? <div className="min-w-0 overflow-x-auto">{right}</div> : null}
         </header>
       ) : null}
       {children}

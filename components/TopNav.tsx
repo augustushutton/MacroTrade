@@ -53,8 +53,21 @@ export default function TopNav() {
 
   return (
     <div className="border border-term-edge">
-      <header className="flex h-9 items-center justify-between bg-term-panel px-2.5">
-        <div className="flex items-center gap-3">
+      {/* `h-9` dropped in favour of a `min-h-9` + vertical padding: the right
+          cluster (Path/Horizon selectors + the Delivery preview) is wide
+          enough on its own — five segmented buttons, a small SVG, four more
+          buttons — that even after giving it its own scroll strip below, a
+          hard-capped height would clip it on the narrowest phones rather
+          than just needing a touch more room. `shrink-0` on the brand/title
+          side keeps it from being squeezed by the scroll strip claiming
+          space via `min-w-0`; `overflow-x-auto` on that strip is the same
+          "scroll in place instead of forcing the page wider" treatment used
+          for the dense tables elsewhere, so the busiest control cluster in
+          the app stays reachable (swipe sideways) rather than clipped, on
+          anything from a 320px phone up. Entirely invisible at desktop
+          widths, where the strip never needs to scroll. */}
+      <header className="flex min-h-9 items-center justify-between gap-2 bg-term-panel px-2.5 py-1">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="flex items-center gap-1.5">
             <MacroTradeLogo />
             <span className="text-[13px] font-semibold tracking-[0.02em] text-term-text">MacroTrade</span>
@@ -63,14 +76,14 @@ export default function TopNav() {
             {active?.pageTitle ?? "MacroTrade"}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 overflow-x-auto">
           <PathSelector path={path} setPath={setPath} />
           <PathPreview path={path} horizon={horizon} />
           <HorizonSelector horizon={horizon} setHorizon={setHorizon} />
         </div>
       </header>
 
-      <nav className="flex items-center border-t border-term-edge bg-term-raised px-2.5 py-1.5">
+      <nav className="flex items-center overflow-x-auto border-t border-term-edge bg-term-raised px-2.5 py-1.5">
         {/* Same segmented-button look as the Path/Horizon controls above
             (Btn, shared with Controls.tsx's Segment) rather than a folder
             tab pulled forward into the page below — each route reads as
