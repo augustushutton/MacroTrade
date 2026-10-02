@@ -240,21 +240,20 @@
   }
 }
 
-/* Whole-app scale-up, now computed live by useFillScale() in providers.tsx
-   instead of a fixed guess. Originally a flat 1.15 ("scale everything up a
-   little bit so it fully covers the screen"), but a fixed constant can't
-   know how tall/wide any given monitor's browser window actually is — on a
-   large external display the real content (TopNav + whichever page is
-   active) ended up occupying a modest block in the corner with a wide band
-   of flat .term-bg below it, which is exactly the "stretched empty
-   background" outcome this mechanism exists to avoid, just arrived at from
-   the opposite direction (scaling too little rather than stretching a
-   container). useFillScale measures the content's own natural height
-   against the actual available viewport height and sets --app-scale to
-   whatever closes that gap (clamped so it never shrinks below 1x and never
-   blows text up past a readable ceiling), re-measuring on window resize and
-   on any content-height change (an accordion opening, switching pages) via
-   ResizeObserver. `zoom` would do this in one property, but it's
+/* Whole-app scale-up, computed live by useFillScale() in providers.tsx from
+   the window's own height alone — deliberately NOT from the content's
+   height. An earlier version measured the actual rendered content and
+   solved for the scale that would make it exactly reach the bottom of the
+   window; that gave a different answer per page (Sensitivity's content is
+   shorter than Builder's, etc.) and recalculated on anything that changed a
+   height, including switching tabs or opening an accordion — which made the
+   whole app visibly zoom in and out as you clicked around. This version
+   only changes --app-scale when the window itself is actually resized, so
+   normal use (navigating, expanding a panel, toggling a control) never
+   touches it. The tradeoff — a short page may leave a little space below it
+   instead of being stretched to the exact pixel — is the right one; see
+   useFillScale's comment for the full reasoning and the fixed reference
+   height it scales from. `zoom` would do this in one property, but it's
    historically unsupported in Firefox; `transform: scale()` is the
    cross-browser way to do the same thing, it just needs two things paired
    with it to behave like `zoom` rather than like a cosmetic hover effect:
@@ -270,11 +269,12 @@
    stretch empty space" stance — Tailwind's own responsive breakpoints are
    untouched by this, since they key off the real browser viewport width via
    media queries, not off this element's own (intentionally pre-shrunk) box
-   width. The 1.15 fallback below only matters for the one frame before
-   useFillScale's effect runs; it is not a ceiling or a floor. A short
-   transition smooths the jump from that fallback to the measured value, and
-   any later rescale (resize, expanding a panel), without being so long that
-   it lags behind a window drag. */
+   width. Below useFillScale's DESKTOP_MIN_WIDTH, scale is pinned to exactly
+   1, so phones/tablets never engage this at all. The 1.15 fallback below
+   only matters for the one frame before useFillScale's effect runs; it is
+   not a ceiling or a floor. A short transition smooths that one jump, and
+   any later rescale from an actual window resize, without lagging behind a
+   window drag. */
 .app-scale {
   width: calc(100% / var(--app-scale, 1.15));
   transform: scale(var(--app-scale, 1.15));
