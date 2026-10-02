@@ -134,8 +134,12 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       setPinned(s.pinned);
       if (s.presetOpen) setPresetOpenState((o) => ({ ...o, ...s.presetOpen }));
       if (s.narrativeGroupTab) setNarrativeGroupTab(s.narrativeGroupTab);
-      if (s.sensitivityXVar) setSensitivityXVar(s.sensitivityXVar);
-      if (s.sensitivityYVar) setSensitivityYVar(s.sensitivityYVar);
+      // Guard against a stale saved id pointing at a variable that no longer
+      // exists (e.g. a session saved before the DXY→USD/CAD or USD/BRL→USD/CHF
+      // swaps). Trusting an unknown id here crashes the Sensitivity page when
+      // it later does an unguarded VAR_BY_ID[id] lookup.
+      if (s.sensitivityXVar && VAR_BY_ID[s.sensitivityXVar]) setSensitivityXVar(s.sensitivityXVar);
+      if (s.sensitivityYVar && VAR_BY_ID[s.sensitivityYVar]) setSensitivityYVar(s.sensitivityYVar);
       if (typeof s.pnlOpenSectors === "boolean") setPnlOpenSectors(s.pnlOpenSectors);
       if (s.pnlSortKey !== undefined) setPnlSortKey(s.pnlSortKey);
       if (s.pnlSortDir) setPnlSortDir(s.pnlSortDir);

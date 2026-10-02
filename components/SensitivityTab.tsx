@@ -138,8 +138,14 @@ export default function SensitivityTab({
   const scenarioCpi = input.state.cpiHeadline ?? VAR_BY_ID.cpiHeadline.base;
   const assumedCpi = cpiOverride ?? scenarioCpi;
 
-  const x = xVar || moved[0]?.id || "fedFunds";
-  const y = yVar || moved[1]?.id || (x === "cpiCore" ? "gdpGrowth" : "cpiCore");
+  // Defense-in-depth: a persisted xVar/yVar can reference a variable id that
+  // no longer exists (e.g. removed/renamed in a later release). Treat an
+  // unknown id the same as "none selected" rather than trusting it blindly —
+  // VAR_BY_ID[x]/[y] are looked up unguarded below and elsewhere in this file.
+  const safeXVar = xVar && VAR_BY_ID[xVar] ? xVar : "";
+  const safeYVar = yVar && VAR_BY_ID[yVar] ? yVar : "";
+  const x = safeXVar || moved[0]?.id || "fedFunds";
+  const y = safeYVar || moved[1]?.id || (x === "cpiCore" ? "gdpGrowth" : "cpiCore");
   const grid = React.useMemo(
     () => heatGrid(input, portfolioId, x, y, 7),
     [input, portfolioId, x, y],
