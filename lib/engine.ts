@@ -705,7 +705,16 @@ export function runScenario(input: ScenarioInput, evalMonths?: number): EngineRe
     const pinVar = Object.entries(SPREAD_PINS).find(([, asset]) => asset === id)?.[0];
     let pin: { value: number; note: string } | undefined;
     if (pinVar) {
-      const moved = rawMove(state, pinVar);
+      // rawMove is in the pin variable's own native unit, which is percent
+      // now (igSpread/hyBBSpread/hyBCCCSpread — see their vars.ts comment on
+      // why the bp->percent conversion there needed no elasticity changes).
+      // The spread CHANNEL this pin feeds (spreadBp, and everything derived
+      // from it — yieldBp, priceFromYield's duration pricing) stays bp
+      // internally on purpose (only the display layer converts), so this one
+      // passthrough site is the one place that native-unit move has to be
+      // rescaled back to bp (x100) to land in the same units as every other
+      // contributor to spreadCh.value.
+      const moved = rawMove(state, pinVar) * 100;
       if (moved !== 0) pin = { value: moved, note: "OAS set directly as an assumption" };
     }
     const merged = mergeTiers(direct, second);

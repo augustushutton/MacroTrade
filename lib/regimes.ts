@@ -53,8 +53,8 @@ export const REGIMES: Regime[] = [
     priority: 5,
     triggers: [
       { label: "VIX ≥ 28", w: 2, test: (s) => v(s, "vix") >= 28 },
-      { label: "B/CCC OAS ≥ 800bp", w: 2, test: (s) => v(s, "hyBCCCSpread") >= 800 },
-      { label: "IG OAS ≥ 160bp", w: 1.5, test: (s) => v(s, "igSpread") >= 160 },
+      { label: "B/CCC OAS ≥ 8.00%", w: 2, test: (s) => v(s, "hyBCCCSpread") >= 8.0 },
+      { label: "IG OAS ≥ 1.60%", w: 1.5, test: (s) => v(s, "igSpread") >= 1.6 },
     ],
     mult: [
       { kinds: ["rate"], groups: ["growth", "inflation"], m: 0.6, why: "Fundamental drivers of the curve are crowded out by the haven bid" },

@@ -126,9 +126,20 @@ export const VARIABLES: Variable[] = [
   { id: "earningsGrowth", label: "Fwd Earnings Growth", group: "growth", unit: "%", base: 9.0, min: -35, max: 30, step: 0.5, norm: 5, dp: 1 },
 
   // ---- Financial conditions --------------------------------------------------
-  { id: "igSpread", label: "IG Corporate OAS", group: "financial", unit: "bp", base: 95, min: 45, max: 700, step: 5, norm: 25, dp: 0 },
-  { id: "hyBBSpread", label: "HY BB OAS", group: "financial", unit: "bp", base: 220, min: 120, max: 900, step: 10, norm: 50, dp: 0 },
-  { id: "hyBCCCSpread", label: "HY B/CCC OAS", group: "financial", unit: "bp", base: 520, min: 250, max: 2200, step: 10, norm: 100, dp: 0 },
+  // On request — basis points converted to percent throughout the app. Every
+  // one of base/min/max/step/norm is divided by the same 100x here, which
+  // leaves shock() (= (raw - base) / norm, in vars.ts below) producing the
+  // EXACT same normalised shock value as before for the same real-world
+  // spread move — the elasticity betas in elasticities.ts that multiply that
+  // shock are untouched, and need no rescaling, because they were always
+  // calibrated against the normalised ratio, never against the raw bp
+  // magnitude directly. Every preset/test that sets one of these three state
+  // values directly (lib/scenarios.ts, tests/engine.test.ts,
+  // tests/montecarlo.test.ts) was divided by 100 to match, and the two raw
+  // OAS thresholds in lib/regimes.ts's Financial Stress triggers likewise.
+  { id: "igSpread", label: "IG Corporate OAS", group: "financial", unit: "%", base: 0.95, min: 0.45, max: 7.00, step: 0.05, norm: 0.25, dp: 2 },
+  { id: "hyBBSpread", label: "HY BB OAS", group: "financial", unit: "%", base: 2.20, min: 1.20, max: 9.00, step: 0.10, norm: 0.50, dp: 2 },
+  { id: "hyBCCCSpread", label: "HY B/CCC OAS", group: "financial", unit: "%", base: 5.20, min: 2.50, max: 22.00, step: 0.10, norm: 1.00, dp: 2 },
   { id: "fwdPE", label: "S&P Forward P/E", group: "financial", unit: "x", base: 20.5, min: 8, max: 32, step: 0.1, norm: 1.0, dp: 2 },
   { id: "trailingPE", label: "S&P Trailing P/E", group: "financial", unit: "x", base: 24.0, min: 9, max: 40, step: 0.1, norm: 1.0, dp: 2 },
   { id: "earningsRevisions", label: "Revision Breadth", group: "financial", unit: "net %", base: 0, min: -60, max: 40, step: 1, norm: 5, dp: 0 },

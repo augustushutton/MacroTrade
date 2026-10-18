@@ -74,21 +74,21 @@ function VarRow({
 
   return (
     <div
-      className={`grid grid-cols-[minmax(0,1fr)_48px_104px_72px] items-stretch border-b border-term-line ${
+      className={`grid grid-cols-[minmax(0,1fr)_48px_104px_72px] items-stretch ${
         zebra ? "bg-term-zebra" : "bg-term-panel"
       }`}
     >
-      <Tooltip content={v.label} className="flex w-full min-w-0 items-center border-r border-term-line px-2 py-dense">
+      <Tooltip content={v.label} className="flex w-full min-w-0 items-center px-2 py-dense">
         <label htmlFor={domId} className="block w-full min-w-0 truncate text-[11px] leading-[13px] text-term-sub">
           {v.label}
         </label>
       </Tooltip>
-      <Tooltip content="Base value" className="flex items-center border-r border-term-line px-1.5 py-dense">
+      <Tooltip content="Base value" className="flex items-center px-1.5 py-dense">
         <div className="w-full text-right font-mono text-[11px] leading-[13px] tnum text-term-muted">
           {v.base.toFixed(v.dp)}
         </div>
       </Tooltip>
-      <div className="flex items-stretch gap-dense border-r border-term-line px-1 py-dense">
+      <div className="flex items-stretch gap-dense px-1 py-dense">
         <Tooltip content={`−${BUMP_TITLE}`}>
           <button
             type="button"

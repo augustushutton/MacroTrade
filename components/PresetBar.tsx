@@ -67,7 +67,7 @@ export default function PresetBar({
                   onClick={() => onPick(p)}
                   className={`group flex w-full min-w-0 items-center gap-1.5 px-2 py-dense text-left text-[11px] ${
                     ri % 2 === 1 && !isSel ? "bg-term-zebra" : ""
-                  } ${ri > 0 ? "border-t border-term-line" : ""} ${
+                  } ${
                     isSel
                       ? "bg-term-text font-medium text-term-panel"
                       : "text-term-sub hover:bg-term-line/10 hover:text-term-text"

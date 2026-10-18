@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PathSelector, HorizonSelector, PathPreview } from "./Controls";
 import { useScenario } from "@/lib/scenario-context";
 import { NAV, navEntryForPath } from "@/lib/nav";
-import { Btn } from "./ui";
 
 /** Badge mark: a hard-cornered (no rounding) near-black square holding a
  * single open zigzag stroke shaped like an "M" — a stock-chart line, not a
@@ -83,17 +83,55 @@ export default function TopNav() {
         </div>
       </header>
 
-      <nav className="flex items-center overflow-x-auto border-t border-term-edge bg-term-raised px-2.5 py-1.5">
-        {/* Same segmented-button look as the Path/Horizon controls above
-            (Btn, shared with Controls.tsx's Segment) rather than a folder
-            tab pulled forward into the page below — each route reads as
-            its own separate, self-contained button, contiguous with its
-            neighbours (-ml-px) exactly like Immediate/Linear/S-Curve/... */}
-        {NAV.map((l, i) => (
-          <Btn key={l.href} href={l.href} active={l.href === active?.href} className={i > 0 ? "-ml-px" : ""}>
-            {l.navLabel}
-          </Btn>
-        ))}
+      <nav className="flex items-end gap-1.5 overflow-x-auto border-t border-term-edge bg-term-raised px-2.5 pt-2.5">
+        {/* Real folder tabs — on request, pushed further still ("look more
+            like folder tabs in legacy software, not buttons"). The
+            height-step + gap pass (below) got the SHAPE of a tab sheet
+            right but every tab was still a plain rectangle, which is what
+            kept reading as "a row of small buttons" no matter how the
+            background/border colour was styled: a rectangle is a button's
+            silhouette regardless of what sits inside it. The one thing a
+            flat rectangle can never read as is a manila folder's flap, so
+            each tab's top two corners are chamfered with a clip-path
+            octagon (TAB_CLIP below) — the same angled-corner cut Windows
+            95/98 property sheets, Delphi, and VB6 drew their tabs with, and
+            a real paper folder tab's own corners. Deliberately a straight
+            45° cut, not a curve — this app still draws no rounded corners
+            anywhere (tailwind.config's borderRadius note); a chamfer keeps
+            that discipline while giving the tab a silhouette no button in
+            this app's design system shares. Bottom corners stay square
+            (unclipped) since that edge is where the tab attaches to the
+            tab sheet, not where the "paper" is cut.
+
+            Everything from the previous pass is unchanged underneath the
+            new silhouette: `items-end` + a shorter inactive box + a taller
+            active one + `gap` between separate tabs (now 1.5 rather than 1,
+            so the angled corners read as clearly distinct flaps rather than
+            nearly touching), and bg-term-bg on the active tab so its open
+            bottom edge continues straight into the page below, with the
+            app's existing --info "selected" accent on its top edge. */}
+        {NAV.map((l) => {
+          const isActive = l.href === active?.href;
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`relative border px-3 text-[11px] font-medium uppercase tracking-wide transition-none ${
+                isActive
+                  ? "z-10 border-term-edge bg-term-bg pb-1.5 pt-2.5 text-term-text"
+                  : "border-term-edge bg-term-raised pb-1.5 pt-1.5 text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+              }`}
+              style={{
+                clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%, 0 7px)",
+                ...(isActive
+                  ? { borderTopColor: "rgb(var(--info))", borderBottomColor: "rgb(var(--term-bg))" }
+                  : undefined),
+              }}
+            >
+              {l.navLabel}
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );

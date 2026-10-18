@@ -14,7 +14,7 @@ const base: ScenarioInput = {
 
 describe("Monte Carlo scenario-uncertainty VaR", () => {
   it("is exactly reproducible for the same seed and inputs", () => {
-    const st = { ...base.state, gdpGrowth: -2.0, vix: 32, igSpread: 180 };
+    const st = { ...base.state, gdpGrowth: -2.0, vix: 32, igSpread: 1.80 };
     const input = { ...base, state: st };
     const a = monteCarloVaR(input, "p6040", { runs: 300, noisePct: 0.25, seed: 7 });
     const b = monteCarloVaR(input, "p6040", { runs: 300, noisePct: 0.25, seed: 7 });
@@ -39,7 +39,7 @@ describe("Monte Carlo scenario-uncertainty VaR", () => {
   });
 
   it("CVaR is at least as extreme as its own VaR threshold (the tail average, not just the cutoff)", () => {
-    const st = { ...base.state, gdpGrowth: -2.2, vix: 34, igSpread: 190, hyBBSpread: 480 };
+    const st = { ...base.state, gdpGrowth: -2.2, vix: 34, igSpread: 1.90, hyBBSpread: 4.80 };
     const r = monteCarloVaR({ ...base, state: st }, "p2080", { runs: 800, noisePct: 0.3 });
     expect(r.cvar95).toBeLessThanOrEqual(r.var95 + 1e-9);
     expect(r.cvar99).toBeLessThanOrEqual(r.var99 + 1e-9);
@@ -48,7 +48,7 @@ describe("Monte Carlo scenario-uncertainty VaR", () => {
   });
 
   it("more input-uncertainty (noisePct) widens the outcome distribution", () => {
-    const st = { ...base.state, gdpGrowth: -1.8, vix: 30, igSpread: 165 };
+    const st = { ...base.state, gdpGrowth: -1.8, vix: 30, igSpread: 1.65 };
     const tight = monteCarloVaR({ ...base, state: st }, "p6040", { runs: 800, noisePct: 0.05, seed: 3 });
     const wide = monteCarloVaR({ ...base, state: st }, "p6040", { runs: 800, noisePct: 0.6, seed: 3 });
     expect(wide.stdev).toBeGreaterThan(tight.stdev);
@@ -63,7 +63,7 @@ describe("Monte Carlo scenario-uncertainty VaR", () => {
   });
 
   it("a loss-only stress scenario centres the distribution below zero", () => {
-    const st = { ...base.state, gdpGrowth: -3.0, vix: 40, igSpread: 220, hyBBSpread: 550, unemployment: 5.5 };
+    const st = { ...base.state, gdpGrowth: -3.0, vix: 40, igSpread: 2.20, hyBBSpread: 5.50, unemployment: 5.5 };
     const r = monteCarloVaR({ ...base, state: st }, "p8020", { runs: 800, noisePct: 0.25 });
     expect(r.mean).toBeLessThan(0);
     expect(r.var95).toBeLessThan(r.mean);

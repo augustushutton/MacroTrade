@@ -4,7 +4,7 @@ import React from "react";
 import { GROUP_ORDER, SECTORS, TOP_LEVEL_ASSETS, type Asset } from "@/lib/assets";
 import { factorAttribution, type AssetResult, type EngineResult, type PortfolioResult } from "@/lib/engine";
 import { BOND_SLEEVE, PORTFOLIOS } from "@/lib/portfolios";
-import { fmtBp, fmtPct, fmtUsd, signColor, signFillBg, signFillFg } from "@/lib/format";
+import { fmtPct, fmtUsd, signColor, signFillBg, signFillFg } from "@/lib/format";
 import { Cap, GroupHeader, Panel, Td, Th, Tooltip, useFlash } from "./ui";
 
 // Factor Attribution: which macro category actually drove the selected
@@ -56,22 +56,25 @@ function FactorAttributionPanel({ r, selected }: { r: EngineResult; selected: st
           </thead>
           <tbody>
             {attrib.map((f) => (
-              <tr key={f.id} className="border-b border-term-line even:bg-term-zebra">
+              <tr key={f.id} className="even:bg-term-zebra">
                 <Td className="text-term-text">{f.label}</Td>
                 <Td
                   align="right"
                   mono
                   className="font-medium"
                   style={{
-                    // Same fixed-opacity solid block as the Portfolio Impact
-                    // Summary rows above, not the magnitude-scaled heat used on
-                    // the Sensitivity tab's grid — consistent block-of-colour
-                    // treatment across both P&L tables. White text (signFillFg),
-                    // never near-black, since a saturated fill this dark makes
-                    // near-black nearly vanish (see lib/format.ts's comment on
-                    // signFillFg for the same fix already applied there).
-                    backgroundColor: signFillBg(f.contribPct),
-                    color: signFillFg(f.contribPct),
+                    // Same magnitude-scaled solid block as the Portfolio
+                    // Impact Summary rows below — scaled against maxAbs
+                    // (already computed above for the dominant-driver
+                    // spotlight), so the single biggest factor in this table
+                    // reads as the most saturated block, exactly like IB's
+                    // own CHANGE column scales against the biggest mover in
+                    // the list. White text (signFillFg) once the fill is
+                    // dark enough, never near-black, since a saturated fill
+                    // this dark makes near-black nearly vanish (see
+                    // lib/format.ts's comment on signFillFg).
+                    backgroundColor: signFillBg(f.contribPct, maxAbs),
+                    color: signFillFg(f.contribPct, maxAbs),
                     boxShadow: f.id === dominantId ? "inset 0 0 0 1.5px rgb(var(--warn))" : undefined,
                   }}
                 >
@@ -118,6 +121,8 @@ function PortfolioRow({
   onSelect,
   notional,
   hydrated,
+  dollarsMax,
+  pctMax,
 }: {
   r: EngineResult;
   p: PortfolioResult;
@@ -126,6 +131,11 @@ function PortfolioRow({
   onSelect: (id: string) => void;
   notional: number;
   hydrated: boolean;
+  /** Biggest |dollars| / |pct| across the four allocation rows in this same
+   *  table, computed once by the parent — see signFillBg's comment for why
+   *  the scale has to be relative to what's on screen together. */
+  dollarsMax: number;
+  pctMax: number;
 }) {
   const shocked = notional + p.dollars;
   const pctFlash = useFlash(p.pct, hydrated);
@@ -134,9 +144,18 @@ function PortfolioRow({
   return (
     <tr
       onClick={() => onSelect(p.id)}
-      className={`cursor-pointer border-b border-term-line last:border-b-0 ${
-        isSel ? "bg-term-raised" : zebra ? "bg-term-zebra" : ""
-      } hover:bg-term-raised`}
+      // Flat grey wash, on request ("remove the thick 3D highlighting...
+      // just a slightly grey highlighting") — bg-term-raised carries this
+      // app's global embossed bevel (globals.css's box-shadow rule on that
+      // class), which reads as a physical raised button face stamped
+      // across the whole row; a selected table row isn't a button, so it
+      // doesn't need that treatment. bg-term-line (a flat neutral grey,
+      // no box-shadow of its own) at low opacity gives the same "this row
+      // is picked out" cue without the bevel. Selected sits a notch more
+      // visible than hover so the two stay distinguishable.
+      className={`cursor-pointer ${
+        isSel ? "bg-term-line/20" : zebra ? "bg-term-zebra" : ""
+      } hover:bg-term-line/10`}
     >
       <Td
         className={
@@ -147,27 +166,27 @@ function PortfolioRow({
       >
         {isSel ? <span className="text-info">&#9656;</span> : <span className="text-term-line">&#9656;</span>} {p.label}
       </Td>
-      <Td align="right" mono className="border-r border-term-line text-term-muted">
+      <Td align="right" mono className="text-term-muted">
         {fmtUsd(notional)}
       </Td>
-      <Td align="right" mono className={`border-r border-term-line ${signColor(p.dollars)} ${shockedFlash}`}>
+      <Td align="right" mono className={`${signColor(p.dollars)} ${shockedFlash}`}>
         {fmtUsd(shocked)}
       </Td>
       <Td
         align="right"
         mono
         className={`font-medium ${dollarsFlash}`}
-        style={{ backgroundColor: signFillBg(p.dollars), color: signFillFg(p.dollars) }}
+        style={{ backgroundColor: signFillBg(p.dollars, dollarsMax), color: signFillFg(p.dollars, dollarsMax) }}
       >
         {fmtUsd(p.dollars)}
       </Td>
       <Td
         align="right"
         mono
-        className={`border-r border-term-line font-medium ${pctFlash}`}
+        className={`font-medium ${pctFlash}`}
         style={{
-          backgroundColor: signFillBg(p.pct),
-          color: signFillFg(p.pct),
+          backgroundColor: signFillBg(p.pct, pctMax),
+          color: signFillFg(p.pct, pctMax),
           boxShadow: isSel ? "inset 0 0 0 1.5px rgb(var(--warn))" : undefined,
         }}
       >
@@ -193,6 +212,13 @@ export function PortfolioSummary({
   notional: number;
   hydrated: boolean;
 }) {
+  // Computed once here, not per-row — see signFillBg's comment for why the
+  // fill opacity scales against the biggest move in the SAME table rather
+  // than a fixed constant. Dollars and percent get their own max since
+  // they're different units; the epsilon floor keeps a flat-baseline
+  // scenario (every row at exactly $0 / 0%) from dividing by zero.
+  const dollarsMax = Math.max(...r.portfolios.map((p) => Math.abs(p.dollars)), 1);
+  const pctMax = Math.max(...r.portfolios.map((p) => Math.abs(p.pct)), 0.01);
   return (
     <Panel title="Portfolio Impact Summary">
       <div className="overflow-x-auto">
@@ -201,17 +227,17 @@ export function PortfolioSummary({
       <table className="w-full table-fixed border-collapse text-[11px]">
         <thead>
           <tr className="bg-term-raised">
-            <Th className="w-[18%] border-r border-term-line">Allocation</Th>
-            <Th align="right" className="w-[17%] border-r border-term-line">
+            <Th className="w-[18%]">Allocation</Th>
+            <Th align="right" className="w-[17%]">
               Baseline Value
             </Th>
-            <Th align="right" className="w-[17%] border-r border-term-line">
+            <Th align="right" className="w-[17%]">
               Shocked Value
             </Th>
-            <Th align="right" className="w-[17%] border-r border-term-line">
+            <Th align="right" className="w-[17%]">
               Net P&amp;L ($)
             </Th>
-            <Th align="right" className="w-[16%] border-r border-term-line">
+            <Th align="right" className="w-[16%]">
               Return (%)
             </Th>
             <Th align="right" className="w-[15%]">
@@ -230,6 +256,8 @@ export function PortfolioSummary({
               onSelect={onSelect}
               notional={notional}
               hydrated={hydrated}
+              dollarsMax={dollarsMax}
+              pctMax={pctMax}
             />
           ))}
         </tbody>
@@ -276,12 +304,21 @@ function avgPrice(rows: Asset[], r: EngineResult): number {
   return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
 
-function SectorRow({ s, r, hydrated }: { s: Asset; r: EngineResult; hydrated: boolean }) {
+/** Nested beneath its parent SPX row — SPX sectors aren't a separate
+ *  holding, they're a decomposition of the one row above, so they ride on
+ *  the same `bg-term-raised` family rather than the flat `bg-term-panel`
+ *  everything else uses. Previously told apart only by a hairline rule
+ *  between each one; now the "alternative dark black and lighter black
+ *  structure" asked for elsewhere in this app does the same job here —
+ *  every other sector row steps up one shade (bg-term-zebra, which already
+ *  reads lighter than bg-term-raised in the dark theme) instead of a line
+ *  between them. */
+function SectorRow({ s, r, hydrated, zebra }: { s: Asset; r: EngineResult; hydrated: boolean; zebra: boolean }) {
   const sr = r.assets[s.id];
   const priceFlash = useFlash(sr?.pricePct ?? 0, hydrated && sr !== undefined);
   if (!sr) return null;
   return (
-    <tr className="border-b border-term-line bg-term-raised hover:bg-term-line/10">
+    <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : "bg-term-raised"}`}>
       <Td className="pl-6 text-term-muted">{s.label}</Td>
       {/* Sectors are a decomposition of SPX, not a separate holding, so
           Weight/Rate/Spread/Yield/Duration/Contribution genuinely don't
@@ -298,13 +335,13 @@ function SectorRow({ s, r, hydrated }: { s: Asset; r: EngineResult; hydrated: bo
       <Td align="right" mono className="text-term-edge">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge border-r border-term-line">
+      <Td align="right" mono className="text-term-edge">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge border-r border-term-line">
+      <Td align="right" mono className="text-term-edge">
         &mdash;
       </Td>
-      <Td align="right" mono className={`font-medium border-r border-term-line ${signColor(sr.pricePct)} ${priceFlash}`}>
+      <Td align="right" mono className={`font-medium ${signColor(sr.pricePct)} ${priceFlash}`}>
         {fmtPct(sr.pricePct)}
       </Td>
       <Td align="right" mono className="text-term-edge">
@@ -347,7 +384,7 @@ function AssetRow({
 
   return (
     <React.Fragment>
-      <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
         <Td>
           <div className="flex items-baseline gap-1">
             <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
@@ -376,7 +413,7 @@ function AssetRow({
         <Td align="right" mono className="text-term-muted">
           {w === undefined ? <span className="text-term-edge">&mdash;</span> : w.toFixed(1)}
         </Td>
-        {/* Rate/spread/yield are the SHOCK, not the P&L — a +391bp yield
+        {/* Rate/spread/yield are the SHOCK, not the P&L — a +3.91% yield
             move is bad for a bondholder, but colouring it red would mean
             "positive number, red text," which is a worse trap than no
             colour at all. Only Price %/Contrib % carry direction colour;
@@ -390,18 +427,23 @@ function AssetRow({
             such thing," which is what Derivation's channel table already
             uses the same dash for. */}
         <Td align="right" mono className="text-term-sub">
-          {ar.rateLegBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtBp(ar.rateLegBp)}
+          {/* On request — basis points shown as percent everywhere. rateLegBp/
+              spreadBp/yieldBp stay bp-denominated internally (the engine's
+              own maths are untouched); dividing by 100 here is a display-only
+              conversion. 2dp matches fmtBp's old default (whole bp = 1bp =
+              0.01%), so no resolution is lost. */}
+          {ar.rateLegBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.rateLegBp / 100)}
         </Td>
         <Td align="right" mono className="text-term-sub">
-          {ar.spreadBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtBp(ar.spreadBp)}
+          {ar.spreadBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.spreadBp / 100)}
         </Td>
-        <Td align="right" mono className="text-term-sub border-r border-term-line">
-          {ar.yieldBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtBp(ar.yieldBp)}
+        <Td align="right" mono className="text-term-sub">
+          {ar.yieldBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.yieldBp / 100)}
         </Td>
-        <Td align="right" mono className="text-term-muted border-r border-term-line">
+        <Td align="right" mono className="text-term-muted">
           {ar.duration === undefined ? <span className="text-term-edge">&mdash;</span> : ar.duration.toFixed(1)}
         </Td>
-        <Td align="right" mono className="border-r border-term-line p-0">
+        <Td align="right" mono className="p-0">
           <Tooltip content="View derivation" display="flex" className="w-full">
             <button
               type="button"
@@ -421,7 +463,9 @@ function AssetRow({
           {contrib === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(contrib)}
         </Td>
       </tr>
-      {isSpx && openSectors ? SECTORS.map((s) => <SectorRow key={s.id} s={s} r={r} hydrated={hydrated} />) : null}
+      {isSpx && openSectors
+        ? SECTORS.map((s, si) => <SectorRow key={s.id} s={s} r={r} hydrated={hydrated} zebra={si % 2 === 1} />)
+        : null}
     </React.Fragment>
   );
 }
@@ -473,7 +517,7 @@ function AssetRowEquity({
 
   return (
     <React.Fragment>
-      <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
         <Td>
           <div className="flex items-baseline gap-1">
             <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
@@ -499,10 +543,10 @@ function AssetRowEquity({
             <span className="text-term-sub">{a.label}</span>
           </div>
         </Td>
-        <Td align="right" mono className="text-term-muted border-r border-term-line">
+        <Td align="right" mono className="text-term-muted">
           {w === undefined ? <span className="text-term-edge">&mdash;</span> : w.toFixed(1)}
         </Td>
-        <Td align="right" mono className="border-r border-term-line p-0">
+        <Td align="right" mono className="p-0">
           <Tooltip content="View derivation" display="flex" className="w-full">
             <button
               type="button"
@@ -522,22 +566,24 @@ function AssetRowEquity({
           {contrib === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(contrib)}
         </Td>
       </tr>
-      {isSpx && openSectors ? SECTORS.map((s) => <SectorRowEquity key={s.id} s={s} r={r} hydrated={hydrated} />) : null}
+      {isSpx && openSectors
+        ? SECTORS.map((s, si) => <SectorRowEquity key={s.id} s={s} r={r} hydrated={hydrated} zebra={si % 2 === 1} />)
+        : null}
     </React.Fragment>
   );
 }
 
-function SectorRowEquity({ s, r, hydrated }: { s: Asset; r: EngineResult; hydrated: boolean }) {
+function SectorRowEquity({ s, r, hydrated, zebra }: { s: Asset; r: EngineResult; hydrated: boolean; zebra: boolean }) {
   const sr = r.assets[s.id];
   const priceFlash = useFlash(sr?.pricePct ?? 0, hydrated && sr !== undefined);
   if (!sr) return null;
   return (
-    <tr className="border-b border-term-line bg-term-raised hover:bg-term-line/10">
+    <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : "bg-term-raised"}`}>
       <Td className="pl-6 text-term-muted">{s.label}</Td>
-      <Td align="right" mono className="text-term-edge border-r border-term-line">
+      <Td align="right" mono className="text-term-edge">
         &mdash;
       </Td>
-      <Td align="right" mono className={`font-medium border-r border-term-line ${signColor(sr.pricePct)} ${priceFlash}`}>
+      <Td align="right" mono className={`font-medium ${signColor(sr.pricePct)} ${priceFlash}`}>
         {fmtPct(sr.pricePct)}
       </Td>
       <Td align="right" mono className="text-term-edge">
@@ -572,8 +618,8 @@ function AssetRowLean({
   if (!ar) return null;
 
   return (
-    <tr className={`border-b border-term-line hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
-      <Td className="border-r border-term-line">
+    <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      <Td>
         <div className="flex items-baseline gap-1">
           <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
             <button
@@ -684,23 +730,23 @@ export default function PnlTab({
   // fill in.
   const fullHead = (
     <tr className="sticky top-0 z-10 bg-term-raised">
-      <Th className="w-[24%] border-r border-term-line">Instrument</Th>
+      <Th className="w-[24%]">Instrument</Th>
       <Th align="right" className="w-[9%]" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
         Weight %
       </Th>
       <Th align="right" className="w-[12%]" onClick={() => toggleSort("rate")} sortDir={sortDirOf("rate")}>
-        Rate Shock (bp)
+        Rate Shock (%)
       </Th>
       <Th align="right" className="w-[12%]" onClick={() => toggleSort("spread")} sortDir={sortDirOf("spread")}>
-        Spread Shock (bp)
+        Spread Shock (%)
       </Th>
-      <Th align="right" className="w-[11%] border-r border-term-line" onClick={() => toggleSort("yield")} sortDir={sortDirOf("yield")}>
+      <Th align="right" className="w-[11%]" onClick={() => toggleSort("yield")} sortDir={sortDirOf("yield")}>
         Shocked Yield
       </Th>
-      <Th align="right" className="w-[9%] border-r border-term-line" onClick={() => toggleSort("duration")} sortDir={sortDirOf("duration")}>
+      <Th align="right" className="w-[9%]" onClick={() => toggleSort("duration")} sortDir={sortDirOf("duration")}>
         Duration
       </Th>
-      <Th align="right" className="w-[12%] border-r border-term-line" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+      <Th align="right" className="w-[12%]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
         Price Impact %
       </Th>
       <Th align="right" className="w-[11%]" onClick={() => toggleSort("contrib")} sortDir={sortDirOf("contrib")}>
@@ -764,11 +810,11 @@ export default function PnlTab({
               <table className="w-full table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
-                    <Th className="w-[44%] border-r border-term-line">Instrument</Th>
-                    <Th align="right" className="w-[16%] border-r border-term-line" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
+                    <Th className="w-[44%]">Instrument</Th>
+                    <Th align="right" className="w-[16%]" onClick={() => toggleSort("w")} sortDir={sortDirOf("w")}>
                       Wt %
                     </Th>
-                    <Th align="right" className="w-[20%] border-r border-term-line" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
+                    <Th align="right" className="w-[20%]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
                       Price %
                     </Th>
                     <Th align="right" className="w-[20%]" onClick={() => toggleSort("contrib")} sortDir={sortDirOf("contrib")}>
@@ -808,7 +854,7 @@ export default function PnlTab({
               <table className="w-full table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
-                    <Th className="w-[67%] border-r border-term-line">Instrument</Th>
+                    <Th className="w-[67%]">Instrument</Th>
                     <Th align="right" className="w-[33%]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
                       Price %
                     </Th>
@@ -842,7 +888,7 @@ export default function PnlTab({
               <table className="w-full table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
-                    <Th className="w-[67%] border-r border-term-line">Instrument</Th>
+                    <Th className="w-[67%]">Instrument</Th>
                     <Th align="right" className="w-[33%]" onClick={() => toggleSort("price")} sortDir={sortDirOf("price")}>
                       Price %
                     </Th>

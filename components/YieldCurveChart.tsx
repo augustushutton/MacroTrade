@@ -3,7 +3,7 @@
 import React from "react";
 import { VAR_BY_ID, type VarState } from "@/lib/vars";
 import type { AssetResult } from "@/lib/engine";
-import { fmtBp, signColor } from "@/lib/format";
+import { fmtPct, signColor } from "@/lib/format";
 import { CHART_PAD_LEFT, CHART_PAD_RIGHT, CHART_W, TREASURY_CURVE_POINTS, xOf } from "@/lib/curveChart";
 import { Panel } from "./ui";
 
@@ -299,7 +299,7 @@ export default function YieldCurveChart({
                     className={`font-mono tnum ${svgSignFill(p.shockBp, 0.5)}`}
                     style={{ pointerEvents: "none" }}
                   >
-                    {fmtBp(p.shockBp)}
+                    {fmtPct(p.shockBp / 100)}
                   </text>
                 ) : null}
               </g>

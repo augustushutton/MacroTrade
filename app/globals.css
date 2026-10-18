@@ -40,71 +40,69 @@
      though getComputedStyle correctly reported black — the CSS was right,
      the browser's native paint was overriding it a layer below CSS. */
   color-scheme: dark;
-  /* Widened again on request ("more structure, more contrast, more
-     geometric appeal") — same hue family, same near-black floor, just a
-     clearer step between each layer than the previous, very compressed
-     pass. The old values (panel 8/9/11, raised 13/14/17) put four
-     structural layers within an 11-point range of each other, which reads
-     as "everything is the same dark colour" rather than as a legible
-     stack of surfaces — widening the ladder is what actually gives a
-     panel-on-panel-on-bar hierarchy its shape, not just the bevels sitting
-     on top of it. --term-input stays literal black: it's the recessed
-     field background, the one place "darker than everything else" is
-     exactly the intent. */
-  --term-bg: 3 4 5;         /* #030405 */
-  --term-panel: 12 13 16;   /* #0C0D10 */
-  --term-raised: 24 26 31;  /* #181A1F — clearly a step above panel now */
-  --term-zebra: 6 7 9;      /* alternate row shade */
+  /* Grey/black ladder reverted on request, back to MacroTrade's own prior
+     values — the pixel-matched TWS chrome (true-black canvas, #494949
+     "raised" step) that briefly lived here made header/toolbar surfaces
+     much lighter than the rest of this app ever looked, and that's being
+     undone while keeping the IB-measured --up/--down signal colours below
+     and the brighter text hierarchy untouched — this edit is scoped to
+     grey/black only. */
+  --term-bg: 8 8 8;         /* #080808 — near-black canvas */
+  --term-panel: 17 17 17;   /* #111111 */
+  --term-raised: 30 30 30;  /* #1E1E1E — clearly a step above panel now */
+  --term-zebra: 13 13 13;   /* alternate row shade */
   --term-input: 0 0 0;      /* recessed field bg — literal black */
-  /* Pulled back twice after overshooting toward "white grid mess" — this is
-     a gentle lift off the original dark charcoal (42 46 57), not a jump to
-     a visible mid-grey. A divider should read as structure the eye barely
-     registers, not as a line competing with the data it's separating. */
-  --term-line: 62 67 80;   /* #3E4350 */
-  --term-edge: 62 67 80;   /* one border colour throughout, per spec */
+  --term-line: 56 56 58;    /* #38383A — neutral, not blue-grey */
+  --term-edge: 56 56 58;    /* one border colour throughout, per spec */
 
-  /* Text hierarchy, three steps, applied consistently — term-text taken to
-     pure white for the steepest possible contrast against the near-black
-     ground above; term-sub/term-muted nudged up the same direction so the
-     three-step spacing stays even:
+  /* Text hierarchy lifted brighter across the board, on request ("fonts and
+     wording more white so contrast is more obvious") — term-text was
+     already pure white; term-sub/term-muted are the two that move, each
+     pushed further toward white while keeping their relative spacing so
+     the three-step hierarchy (text > sub > muted) still reads:
      term-text  — primary values: P&L figures, selected rows.
      term-sub   — row labels, instrument names, body copy.
      term-muted — column headers, captions, static context values. */
-  --term-muted: 176 183 196; /* #B0B7C4 */
-  --term-sub: 214 220 230;
+  --term-muted: 180 180 182;
+  --term-sub: 225 225 227;
   --term-text: 255 255 255;  /* pure white */
 
-  /* Signal colours: darker AND more saturated this round, on request — not
-     just dimmer versions of the last pass but a deeper, richer red/green
-     (more chroma, not more grey) so they read as stronger against the
-     near-black ground and the now-white body text, while still sitting
-     clearly darker than either. */
-  --up: 20 110 62;     /* #146E3E, deep saturated green */
-  --down: 150 28 28;   /* #961C1C, deep saturated red */
+  /* Signal colours pixel-sampled from the same TWS screenshot's Monitor
+     watchlist CHANGE column — not an eyeball match. Measured the mean of
+     every saturated (non-grey, non-text) pixel across the full red fill
+     column (13 rows, NLNK through BUD) and the full green fill column (10
+     rows, BABA through NVDA) separately: red averaged to (160, 15, 15),
+     green to (8, 58, 10). Brightened on request ("brighten the red and
+     greens... in the colored rectangles, not the text") — the raw measured
+     mean read as too dark/muddy once it was actually on screen filling a
+     cell, versus just sampled as a data point. Lifted lightness only (HSL
+     L+0.12, same hue/saturation as the measured colour) rather than picked
+     freehand, and kept well short of the --up-bright/--down-bright pair
+     below (+0.20) so the two stay visually distinct — these are still the
+     fill pair (signFillBg/heatBg and everything else that needs white text
+     legible on top of a solid block), not the plain-text pair. */
+  --up: 15 112 19;      /* #0F7013, measured green lifted +0.12L */
+  --down: 216 20 20;    /* #D81414, measured red lifted +0.12L */
 
-  /* Brighter pair, on request, reserved for signColor's plain number/text
-     colouring ONLY — a bare "+2.4%" sitting on the ordinary panel
-     background with nothing behind it. --up/--down above stay this dark on
-     purpose and keep doing every OTHER job in the app: the solid block
-     fills (signFillBg/signFillFg), the Sensitivity heatmap (heatBg/heatFg),
-     and every chart (the Monte Carlo histogram, the two-variable surface's
-     gradient legend, SignedBar) — all of those need a fill dark enough that
-     white text stays legible on top of it, or a colour muted enough not to
-     fight the rest of the chart. Plain text has no such constraint (it sits
-     on the near-black ground, not on its own saturated fill), so it can
-     read as a real, punchy green/red the way a trader expects a live P&L
-     figure to. */
-  /* Pulled back a step on request ("a little darker and less neon") — from
-     Tailwind's green-500 (#22C55E) to green-600 (#16A34A): same hue, lower
-     lightness and a touch less saturation, so it reads as a confident green
-     rather than a glowing one.
-     Pulled back one more step on request ("slightly darker, number text
-     only") — green-600 (#16A34A) to green-700 (#15803D), red-500 (#EF4444)
-     to red-600 (#DC2626) — same hue each, one notch lower lightness. Still
-     only this bright pair moves; --up/--down above (the fills/heatmaps/
-     charts) are untouched, per the scoping note above. */
-  --up-bright: 21 128 61;    /* #15803D */
-  --down-bright: 220 38 38;  /* #DC2626 */
+  /* Brighter pair, reserved for signColor's plain number/text colouring
+     ONLY — a bare "+2.4%" sitting on the ordinary panel background with
+     nothing behind it, untouched by the --up/--down brightening above (the
+     user asked for the rectangles, explicitly not the text). --up/--down
+     stay dark enough for white text and keep doing every OTHER job in the
+     app: the solid block fills (signFillBg/signFillFg), the Sensitivity
+     heatmap (heatBg/heatFg), and every chart (the Monte Carlo histogram,
+     the two-variable surface's gradient legend, SignedBar) — all of those
+     need a fill dark enough that white text stays legible on top of it, or
+     a colour muted enough not to fight the rest of the chart. Plain text
+     has no such constraint (it sits on the near-black ground, not on its
+     own saturated fill), so it reads as a real, punchy green/red the way a
+     trader expects a live P&L figure to. Originally derived from the
+     pixel-measured --up/--down (HSL L+0.20 off the unbrightened mean, same
+     hue/saturation) — kept as its own fixed pair rather than re-derived
+     from the now-brighter --up/--down above, which would have collapsed
+     the two into nearly the same colour. */
+  --up-bright: 20 148 25;    /* #149419 */
+  --down-bright: 236 40 41;  /* #EC2829 */
   --warn: 185 138 62;
   --info: 43 108 176;  /* #2B6CB0, flat muted blue for selection/focus */
 }
@@ -298,6 +296,43 @@
 }
 .flash-down {
   animation: flash-down 900ms ease-out;
+}
+
+/* Trading tab's Transmit button + order row, on request ("make sure there
+   is an animation for when you place your order"). Deliberately short and
+   sharp, not bouncy or elastic — these fire on a user action (clicking
+   Transmit), not on a value drifting on its own like flash-up/-down above,
+   and a trading terminal confirms a fill instantly; it doesn't celebrate
+   one the way a consumer app's confetti-on-buy does. */
+@keyframes transmit-pulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+.transmit-pulse {
+  animation: transmit-pulse 220ms ease-out;
+}
+/* Row-level execution flash, coloured to match the side just transmitted —
+   blue (--info, the same "IB blue BUY" token SideToggle uses) for a buy
+   fill, red (--down, same as every other sell/short fill in the app) for a
+   sell — the same "an execution report just landed on this line" cue a
+   real quote blotter gives when a fill prints, independent of the
+   zebra/raised background already on the row (see flash-up/-down above for
+   why animating background-color over an existing class-applied one is
+   already a proven pattern in this file). */
+@keyframes row-flash-buy {
+  from { background-color: rgb(var(--info) / 0.35); }
+  to { background-color: rgb(var(--info) / 0); }
+}
+@keyframes row-flash-sell {
+  from { background-color: rgb(var(--down) / 0.35); }
+  to { background-color: rgb(var(--down) / 0); }
+}
+.row-flash-buy {
+  animation: row-flash-buy 700ms ease-out;
+}
+.row-flash-sell {
+  animation: row-flash-sell 700ms ease-out;
 }
 
 /* Print. A hard copy is a client deliverable, not a screen capture of a dark

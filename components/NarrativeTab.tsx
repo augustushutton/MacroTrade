@@ -3,7 +3,7 @@
 import React from "react";
 import type { EngineResult, Term } from "@/lib/engine";
 import { ASSETS, type Asset } from "@/lib/assets";
-import { fmtBp, fmtNum, fmtPct, fmtSigned, signColor } from "@/lib/format";
+import { fmtNum, fmtPct, fmtSigned, signColor } from "@/lib/format";
 import { Btn, Cap, GroupHeader, Panel, Td, Th, Tooltip } from "./ui";
 
 // Derivation table: beta × shock × multiplier = value, grouped by asset class.
@@ -49,21 +49,31 @@ function TermRows({ terms, unit }: { terms: Term[]; unit: string }) {
       {terms.map((t, i) => {
         const adjusted = Math.abs(t.mult - 1) > 0.005;
         return (
-          <tr key={`${t.driver}-${i}`} className={`border-b border-term-line ${i % 2 === 1 ? "bg-term-zebra" : ""}`}>
-            <Td className="pl-6 text-term-sub">{expandAbbrev(t.label)}</Td>
-            <Td align="right" mono className="text-term-muted">
+          <tr key={`${t.driver}-${i}`} className={i % 2 === 1 ? "bg-term-zebra" : ""}>
+            <Td className="w-[45%] pl-6 text-term-sub">{expandAbbrev(t.label)}</Td>
+            <Td align="right" mono className="w-[14%] text-term-muted">
               {fmtSigned(t.shock, 2)}
             </Td>
-            <Td align="right" mono className="text-term-muted">
+            <Td align="right" mono className="w-[14%] text-term-muted">
               {fmtSigned(t.beta, 3)}
             </Td>
-            <Td align="right" mono className={adjusted ? "text-term-text" : "text-term-edge"}>
+            <Td align="right" mono className={`w-[11%] ${adjusted ? "text-term-text" : "text-term-edge"}`}>
               <Tooltip content={t.reasons.length > 0 ? t.reasons.join(" · ") : "No regime, timing, or correlation adjustment"}>
                 <span>{fmtNum(t.mult, 3)}</span>
               </Tooltip>
             </Td>
-            <Td align="right" mono className={signColor(t.value, 0.005)}>
-              {unit === "bp" ? fmtBp(t.value, 1) : fmtPct(t.value)}
+            <Td align="right" mono className={`w-[16%] ${signColor(t.value, 0.005)}`}>
+              {/* On request — basis points shown as percent everywhere. t.value
+                  is still bp-denominated internally when unit === "bp" (the
+                  engine's own rate/spread channel maths are untouched — see
+                  lib/vars.ts's comment on the OAS inputs for why), so this
+                  divides by 100 at the display boundary only. 3dp, not
+                  fmtPct's usual 2, to keep the same resolution the old 1dp-bp
+                  figure carried (0.1bp = 0.001%) — this is a granular
+                  per-term audit row, not a headline rate, and rounding a
+                  small contributor's term to "0.00%" would hide exactly the
+                  kind of detail this table exists to show. */}
+              {unit === "bp" ? fmtPct(t.value / 100, 3) : fmtPct(t.value)}
             </Td>
           </tr>
         );
@@ -203,6 +213,27 @@ export default function NarrativeTab({
             </Btn>
           ))}
         </div>
+        {visibleGroups.length === 0 ? (
+          // On a fresh/default scenario (or any scenario that hasn't moved
+          // anything in THIS instrument class specifically) this page has
+          // nothing to derive, and used to just render nothing below the
+          // tab bar — indistinguishable from the page being broken, which
+          // is exactly what got reported. SensitivityTab's Leave-One-Out
+          // panel already has the right convention for "there's genuinely
+          // no data right now" (a plain Cap line, not a blank void); this
+          // reuses it verbatim rather than inventing a second one. Two
+          // cases get slightly different wording: nothing moved anywhere
+          // (shown.length === 0) vs. something moved, just not in this
+          // asset class (visibleGroups.length === 0 but shown.length > 0,
+          // e.g. you shocked a bond variable and are looking at the FX tab).
+          <div className="px-3 py-4">
+            <Cap>
+              {shown.length === 0
+                ? "No variable moved from baseline"
+                : `No ${GROUP_TABS.find((t) => t.id === activeGroupTab)!.label.toLowerCase()} instrument moved from baseline — try another tab, or adjust an input in Builder.`}
+            </Cap>
+          </div>
+        ) : (
         <div>
           {visibleGroups.map(([groupName, assets]) => (
             <div key={groupName}>
@@ -285,44 +316,51 @@ export default function NarrativeTab({
                             // US Large Cap, ...), and the physical
                             // stamped-metal bevel (globals.css's
                             // .bg-term-raised rule) is the app's one visual
-                            // cue for "the thing that matters most here."
-                            className={`sticky top-0 z-[1] border-b border-term-line bg-term-raised ${justFocused === a.id ? "bg-info/10" : ""}`}
+                            // cue for "the thing that matters most here" —
+                            // that bevel, not a hairline rule, is what marks
+                            // this row off from the channel/term rows below.
+                            className={`sticky top-0 z-[1] bg-term-raised ${justFocused === a.id ? "bg-info/10" : ""}`}
                           >
-                            <Td className="font-medium text-term-text">{expandAbbrev(a.label)}</Td>
-                            <Td align="right" className="text-term-edge">
+                            <Td className="w-[45%] font-medium text-term-text">{expandAbbrev(a.label)}</Td>
+                            <Td align="right" className="w-[14%] text-term-edge">
                               &mdash;
                             </Td>
-                            <Td align="right" className="text-term-edge">
+                            <Td align="right" className="w-[14%] text-term-edge">
                               &mdash;
                             </Td>
-                            <Td align="right" className="text-term-edge">
+                            <Td align="right" className="w-[11%] text-term-edge">
                               &mdash;
                             </Td>
-                            <Td align="right" mono className={`font-medium ${signColor(ar.pricePct)}`}>
+                            <Td align="right" mono className={`w-[16%] font-medium ${signColor(ar.pricePct)}`}>
                               {fmtPct(ar.pricePct)}
                             </Td>
                           </tr>
-                          {ar.channels.map((c) => (
+                          {ar.channels.map((c, ci) => (
                             <React.Fragment key={c.channel}>
-                              {/* Flat bg-term-panel, not bg-term-raised — the
-                                  bevel lives on the asset row above, so a
-                                  channel label (Price/Spread/Yield/Multiple/
-                                  Earnings/Risk Premium) reads as a subordinate
-                                  grouping under the subject, not a second
-                                  competing focal point. */}
-                              <tr className="border-b border-term-line bg-term-panel">
-                                <Td className="pl-4 text-term-sub">{c.label}</Td>
-                                <Td align="right" className="text-term-edge">
+                              {/* Flat bg-term-panel/bg-term-zebra alternation,
+                                  not a raised bevel — the bevel lives on the
+                                  asset row above, so a channel label (Price/
+                                  Spread/Yield/Multiple/Earnings/Risk Premium)
+                                  reads as a subordinate grouping under the
+                                  subject, not a second competing focal
+                                  point. Shading alternates per channel
+                                  (rather than per term row) so a channel's
+                                  own rows read as one banded block. */}
+                              <tr className={ci % 2 === 1 ? "bg-term-zebra" : "bg-term-panel"}>
+                                <Td className="w-[45%] pl-4 text-term-sub">{c.label}</Td>
+                                <Td align="right" className="w-[14%] text-term-edge">
                                   &mdash;
                                 </Td>
-                                <Td align="right" className="text-term-edge">
+                                <Td align="right" className="w-[14%] text-term-edge">
                                   &mdash;
                                 </Td>
-                                <Td align="right" className="text-term-edge">
+                                <Td align="right" className="w-[11%] text-term-edge">
                                   &mdash;
                                 </Td>
-                                <Td align="right" mono className={`font-medium ${signColor(c.value, 0.005)}`}>
-                                  {c.channel === "rate" || c.channel === "spread" ? fmtBp(c.value, 1) : fmtPct(c.value)}
+                                <Td align="right" mono className={`w-[16%] font-medium ${signColor(c.value, 0.005)}`}>
+                                  {/* Same bp->percent display conversion as TermRows just
+                                      below, same 3dp reasoning. */}
+                                  {c.channel === "rate" || c.channel === "spread" ? fmtPct(c.value / 100, 3) : fmtPct(c.value)}
                                 </Td>
                               </tr>
                               <TermRows
@@ -341,6 +379,7 @@ export default function NarrativeTab({
             </div>
           ))}
         </div>
+        )}
       </Panel>
     </div>
   );

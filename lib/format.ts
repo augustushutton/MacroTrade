@@ -31,10 +31,11 @@ export function fmtPctBare(v: number, dp = 2): string {
   return v.toFixed(dp);
 }
 
-export function fmtBp(v: number, dp = 0): string {
-  if (!Number.isFinite(v)) return "n/a";
-  return `${sign(v, 0.5 * 10 ** -dp)}${v.toFixed(dp)}bp`;
-}
+// fmtBp (basis-point formatter) was removed on request — every bp-denominated
+// figure in the app now displays as percent via fmtPct instead (dividing the
+// underlying bp value by 100 at each call site). The internal engine fields
+// that still carry "Bp" in their own name (rateLegBp, spreadBp, yieldBp,
+// steepNowBp, shockBp, ...) are untouched — only the display layer changed.
 
 export function fmtUsd(v: number): string {
   if (!Number.isFinite(v)) return "n/a";
@@ -138,25 +139,37 @@ export function heatFg(v: number, max: number): string {
 /**
  * Solid-fill "watchlist" cell treatment — Interactive Brokers' own watchlist
  * colours its CHANGE column as a full block of solid green or red, not
- * coloured text on the row's own background, and that block-of-colour read
- * is a real, distinct convention from signColor's text-only one. Fixed
- * opacity rather than heatBg's magnitude scaling (there's no "how big was
- * the move" context here, just direction). Returns inline-style values (not
- * Tailwind classes) since the two colours are picked from the same runtime
- * --up/--down custom properties as every other colour in the app, the same
- * reasoning as heatBg/heatFg above.
+ * coloured text on the row's own background. On request ("change the
+ * opacity"), this dropped its earlier fixed 0.55 opacity in favour of
+ * exactly what IB's own CHANGE column actually does: every row's fill
+ * intensity is scaled by the SIZE of that row's move relative to the
+ * biggest move currently in the same table (pixel-sampled from the
+ * reference TWS screenshot — the most negative row, NLNK at -12.24%, reads
+ * as a noticeably more saturated red block than BUD's -1.37%, not the same
+ * flat red). `max` is the caller's own table — the biggest |v| among the
+ * rows actually on screen together — so the scaling is always relative to
+ * what a trader is comparing it against, the same reasoning as
+ * heatMax/loHeatMax on the Sensitivity tab. Floored at 0.18 rather than
+ * heatBg's floor-less scale: a heatmap cell can fade to nothing at the low
+ * end because its neighbours carry the eye, but a lone $11 fill in an
+ * otherwise-empty Trading row still needs to read as "this is negative,"
+ * not vanish into the panel background.
  *
- * signFillFg returns white, not near-black: near-black text on this fill was
- * the original legibility bug (see heatFg's comment above for the same fix
- * on the Sensitivity heatmap) — at 0.55 opacity the fill is a deep, dark
- * green/red in both themes, and near-black nearly vanishes into it.
+ * signFillFg returns white once the fill is dark enough (a>0.5) — the same
+ * near-black-vanishes-into-a-dark-fill fix as heatFg above — and the
+ * ordinary term-text colour below that, since a pale, barely-scaled fill
+ * needs normal-contrast text, not white-on-almost-nothing.
  */
-export function signFillBg(v: number, dead = 0.005): string {
+export function signFillBg(v: number, max: number, dead = 0.005): string {
   if (!Number.isFinite(v) || Math.abs(v) < dead) return "transparent";
-  return v > 0 ? "rgb(var(--up) / 0.55)" : "rgb(var(--down) / 0.55)";
+  const m = Number.isFinite(max) && max > 0 ? max : Math.abs(v) || 1;
+  const a = Math.min(0.85, Math.max(0.18, (Math.abs(v) / m) * 0.85));
+  return v > 0 ? `rgb(var(--up) / ${a.toFixed(3)})` : `rgb(var(--down) / ${a.toFixed(3)})`;
 }
-export function signFillFg(v: number, dead = 0.005): string {
+export function signFillFg(v: number, max: number, dead = 0.005): string {
   if (!Number.isFinite(v) || Math.abs(v) < dead) return "rgb(var(--term-sub))";
-  return "rgb(255 255 255)";
+  const m = Number.isFinite(max) && max > 0 ? max : Math.abs(v) || 1;
+  const a = Math.min(0.85, Math.max(0.18, (Math.abs(v) / m) * 0.85));
+  return a > 0.5 ? "rgb(255 255 255)" : "rgb(var(--term-text))";
 }
 

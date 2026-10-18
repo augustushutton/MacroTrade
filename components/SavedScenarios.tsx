@@ -83,7 +83,7 @@ export default function SavedScenarios() {
       </GroupHeader>
       <div>
         {naming ? (
-          <div className="flex items-center gap-1.5 border-b border-term-line px-2 py-1.5">
+          <div className="flex items-center gap-1.5 px-2 py-1.5">
             <input
               autoFocus
               value={name}
@@ -130,7 +130,7 @@ export default function SavedScenarios() {
                     type="button"
                     onClick={() => handleLoad(s)}
                     className={`group flex w-full min-w-0 items-center justify-between gap-1.5 px-2 py-dense text-left text-[11px] ${
-                      i > 0 ? "border-t border-term-line" : ""
+                      i % 2 === 1 ? "bg-term-zebra" : ""
                     } ${
                       isSel
                         ? "bg-term-text font-medium text-term-panel"

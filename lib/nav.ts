@@ -18,6 +18,8 @@ export const NAV: NavEntry[] = [
   { href: "/pnl", navLabel: "P&L", pageTitle: "P&L Attribution" },
   { href: "/sensitivity", navLabel: "Sensitivity", pageTitle: "Sensitivity Matrix" },
   { href: "/derivation", navLabel: "Derivation", pageTitle: "Derivation" },
+  { href: "/trading", navLabel: "Trading", pageTitle: "Trading" },
+  { href: "/execution", navLabel: "Execution", pageTitle: "Execution" },
 ];
 
 export function navEntryForPath(pathname: string): NavEntry | undefined {

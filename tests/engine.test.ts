@@ -121,7 +121,7 @@ describe("directional sanity", () => {
   });
 
   it("widens credit and drops equity in a stress state", () => {
-    const r = runScenario({ ...base, state: { ...base.state, vix: 42, hyBCCCSpread: 950, igSpread: 190 } });
+    const r = runScenario({ ...base, state: { ...base.state, vix: 42, hyBCCCSpread: 9.50, igSpread: 1.90 } });
     expect(r.regime.active).toBe("financial_stress");
     expect(r.assets.SPX.pricePct).toBeLessThan(0);
     expect(r.assets.HY_BCCC.pricePct).toBeLessThan(r.assets.IG.pricePct);
@@ -154,7 +154,7 @@ describe("pins", () => {
   });
 
   it("uses the typed OAS instead of the modelled one", () => {
-    const r = runScenario({ ...base, state: { ...base.state, igSpread: 145 } });
+    const r = runScenario({ ...base, state: { ...base.state, igSpread: 1.45 } });
     expect(r.assets.IG.pinned).toBe(true);
     expect(r.assets.IG.spreadBp).toBeCloseTo(50, 6);
   });
@@ -503,7 +503,7 @@ describe("compounding", () => {
   it("bounds an arbitrarily severe shock above a total loss", () => {
     const st = {
       ...baselineState(),
-      vix: 80, igSpread: 400, hyBBSpread: 900, hyBCCCSpread: 2200,
+      vix: 80, igSpread: 4.00, hyBBSpread: 9.00, hyBCCCSpread: 22.00,
       gdpGrowth: -8, unemployment: 14, earningsRevisions: -60, earningsGrowth: -35,
     };
     const r = runScenario({ ...base, state: st });
@@ -525,7 +525,7 @@ describe("sub-horizon evaluation (responseWeightAt)", () => {
   });
 
   it("runScenario(input, input.horizon) reproduces runScenario(input) exactly", () => {
-    const st = { ...base.state, gdpGrowth: -1.8, vix: 27, igSpread: 150 };
+    const st = { ...base.state, gdpGrowth: -1.8, vix: 27, igSpread: 1.50 };
     const input = { ...base, state: st, path: "scurve" as const };
     const a = runScenario(input);
     const b = runScenario(input, input.horizon);
@@ -545,7 +545,7 @@ describe("sub-horizon evaluation (responseWeightAt)", () => {
 describe("factor attribution", () => {
   it("sums back to exactly the portfolio's own pct", () => {
     const scenarios: Array<Record<string, number>> = [
-      { gdpGrowth: -1.8, vix: 30, igSpread: 165, hyBBSpread: 420, fedFunds: 2.75 }, // recession-ish
+      { gdpGrowth: -1.8, vix: 30, igSpread: 1.65, hyBBSpread: 4.20, fedFunds: 2.75 }, // recession-ish
       { cpiCore: 5.4, wageGrowth: 5.8, fedFunds: 5.0, gdpGrowth: 0.3 }, // stagflation-ish
       { fedFunds: 5.5, realRate10y: 2.6 }, // a single policy move
     ];

@@ -48,7 +48,7 @@ function InflationAssumption({
 
   return (
     <Panel title="Inflation Assumption">
-      <div className="flex flex-col items-center gap-1 px-2 py-2">
+      <div className="flex flex-col items-center gap-1 px-2 py-1">
         <div className="flex items-stretch gap-dense">
           <button
             type="button"
@@ -204,7 +204,7 @@ export default function SensitivityTab({
                   something scannable as a column of colour, the way a
                   one-column heatmap reads at a glance. */}
               {bars.map((b) => (
-                <tr key={b.varId} className="border-b border-term-line even:bg-term-zebra">
+                <tr key={b.varId} className="even:bg-term-zebra">
                   <Td className="text-term-text">{b.label}</Td>
                   <Td
                     align="right"
@@ -277,7 +277,7 @@ export default function SensitivityTab({
             <tbody>
               {grid.ys.map((yv, yi) => (
                 <tr key={yi}>
-                  <Td align="right" mono className="border-r border-term-line bg-term-raised text-term-muted">
+                  <Td align="right" mono className="bg-term-raised text-term-muted">
                     {yv.toFixed(VAR_BY_ID[y].dp)}
                   </Td>
                   {grid.xs.map((_, xi) => {
@@ -299,31 +299,6 @@ export default function SensitivityTab({
               ))}
             </tbody>
           </table>
-          </div>
-          <div className="flex items-center border-t border-term-line px-2 py-1">
-            <Cap>
-              {VAR_BY_ID[x].label} across {VAR_BY_ID[y].label}
-            </Cap>
-          </div>
-          {/* Colour legend: the heatmap's fill opacity is |value| / heatMax
-              (see heatBg), symmetric about zero — so the truthful legend
-              range is -heatMax to +heatMax, not grid.min to grid.max, which
-              is usually asymmetric (a scenario rarely moves the portfolio
-              equally far in both directions) and would mislabel how deep a
-              boundary cell's colour actually reads relative to full
-              saturation. */}
-          <div className="flex items-center gap-2 border-t border-term-line px-2 py-1.5">
-            <Cap className="text-down">&minus;{heatMax.toFixed(1)}%</Cap>
-            <div
-              className="relative h-2.5 flex-1"
-              style={{
-                background:
-                  "linear-gradient(to right, rgb(var(--down) / 0.85), rgb(var(--down) / 0) 50%, rgb(var(--up) / 0) 50%, rgb(var(--up) / 0.85))",
-              }}
-            >
-              <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-term-line" />
-            </div>
-            <Cap className="text-up">+{heatMax.toFixed(1)}%</Cap>
           </div>
         </Panel>
 
@@ -356,9 +331,7 @@ export default function SensitivityTab({
               {ladder.map((l, i) => (
                 <div
                   key={l.horizon}
-                  className={`flex flex-1 items-center justify-between px-2 leading-[14px] ${
-                    i < ladder.length - 1 ? "border-b border-term-line" : ""
-                  } ${i % 2 === 1 ? "bg-term-zebra" : ""}`}
+                  className={`flex flex-1 items-center justify-between px-2 leading-[14px] ${i % 2 === 1 ? "bg-term-zebra" : ""}`}
                 >
                   <span className="text-[11px] text-term-sub">{HORIZON_LABEL[l.horizon]}</span>
                   <span className={`font-mono text-[11px] tnum font-medium ${signColor(l.pct)}`}>
@@ -380,32 +353,35 @@ export default function SensitivityTab({
           convention as the rest of this codebase's removed-by-request
           features. */}
 
-      {/* Its own full-width section, not squeezed into the Horizon Ladder's
-          260px sidebar column — CPI's effect on a scenario is real enough to
-          read at its own width, not a footnote crammed next to it. Nominal
-          is the scenario's own figure (ladder[].pct, unaffected by the
-          Inflation Assumption override above); Cumulative CPI and Real are
-          both recomputed here off `assumedCpi` (cumulativeInflation/
-          realReturn in lib/engine.ts) rather than read off ladder[].cpiUsed/
-          realPct directly, so overriding the assumption above actually
-          changes what this table shows instead of only labelling the same
-          scenario-locked numbers differently. Inflation Drag is just Real
-          minus Nominal, restated as its own column because "how many points
-          did inflation cost this scenario" is the number a reader actually
-          wants without doing that subtraction themselves. */}
+      {/* Its own full-width section, back at the bottom of the page on
+          request (it previously sat right under Leave-One-Out for a brief
+          pass, then moved back here) — not squeezed into the Horizon
+          Ladder's 260px sidebar column, since CPI's effect on a scenario is
+          real enough to read at its own width, not a footnote crammed next
+          to it. Nominal is the scenario's own figure (ladder[].pct,
+          unaffected by the Inflation Assumption override above);
+          Cumulative CPI and Real are both recomputed here off `assumedCpi`
+          (cumulativeInflation/realReturn in lib/engine.ts) rather than read
+          off ladder[].cpiUsed/realPct directly, so overriding the
+          assumption actually changes what this table shows instead of only
+          labelling the same scenario-locked numbers differently. Inflation
+          Drag is just Real minus Nominal, restated as its own column
+          because "how many points did inflation cost this scenario" is the
+          number a reader actually wants without doing that subtraction
+          themselves. */}
       <Panel title="Real Return (Inflation-Adjusted)">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-[11px]">
             <thead>
               <tr className="bg-term-raised">
                 <Th className="w-[16%]">Horizon</Th>
-                <Th align="right" className="w-[20%] border-r border-term-line">
+                <Th align="right" className="w-[20%]">
                   Nominal (%)
                 </Th>
-                <Th align="right" className="w-[26%] border-r border-term-line">
+                <Th align="right" className="w-[26%]">
                   Cumulative CPI Assumed (%)
                 </Th>
-                <Th align="right" className="w-[18%] border-r border-term-line">
+                <Th align="right" className="w-[18%]">
                   Real (%)
                 </Th>
                 <Th align="right" className="w-[20%]">
@@ -419,15 +395,15 @@ export default function SensitivityTab({
                 const realPct = realReturn(l.pct, assumedCpi, l.horizon);
                 const drag = realPct - l.pct;
                 return (
-                  <tr key={l.horizon} className="border-b border-term-line even:bg-term-zebra">
+                  <tr key={l.horizon} className="even:bg-term-zebra">
                     <Td className="text-term-sub">{HORIZON_LABEL[l.horizon]}</Td>
-                    <Td align="right" mono className={`border-r border-term-line font-medium ${signColor(l.pct)}`}>
+                    <Td align="right" mono className={`font-medium ${signColor(l.pct)}`}>
                       {fmtPct(l.pct)}
                     </Td>
-                    <Td align="right" mono className="border-r border-term-line text-term-muted">
+                    <Td align="right" mono className="text-term-muted">
                       {fmtPct(cumCpi)}
                     </Td>
-                    <Td align="right" mono className={`border-r border-term-line font-medium ${signColor(realPct)}`}>
+                    <Td align="right" mono className={`font-medium ${signColor(realPct)}`}>
                       {fmtPct(realPct)}
                     </Td>
                     <Td align="right" mono className={signColor(drag)}>
