@@ -109,8 +109,8 @@ export function PathPreview({ path, horizon }: { path: PathShape; horizon: Horiz
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-th font-semibold uppercase tracking-wide text-term-muted">
-        Delivery <span className="normal-case text-term-edge">·</span> 0&ndash;{HORIZON_LABEL[horizon]}
+      <span className="text-th font-semibold uppercase text-term-muted">
+        Delivery <span className="normal-case text-term-sub">·</span> 0&ndash;{HORIZON_LABEL[horizon]}
       </span>
       <svg
         width={PREVIEW_W}

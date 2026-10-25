@@ -2,9 +2,46 @@
 
 import React from "react";
 import Link from "next/link";
+import { ScrollHint } from "./ScrollHint";
 
 // Shared primitives. Uppercase is reserved for table column headers (Th)
 // only; panel titles, buttons, and section dividers render in natural case.
+
+/** Badge mark: a hard-cornered (no rounding) near-black square holding a
+ * single open zigzag stroke shaped like an "M" — a stock-chart line, not a
+ * mountain-plus-baseline. The path deliberately never closes back along the
+ * bottom (no trailing `Z`, no fourth point returning to the start), so
+ * there's no line joining the two feet of the M — just the M itself.
+ * ONE dark-green hex (DARK_GREEN) is reused for both the M stroke and the
+ * square's border/outline rather than two independently-chosen greens, so
+ * the two can't drift apart the way the M-green and border-grey did before —
+ * "the green on the M" and "the outline" are the same paint by
+ * construction, not by two numbers matching.
+ *
+ * Moved here from TopNav.tsx (which defined its own fixed-22px copy) so
+ * components/Landing.tsx can use the identical mark at its own size (40px,
+ * matching the title bar it sits in) instead of a second hand-copied SVG
+ * that could drift from this one — exactly the kind of duplication this
+ * same comment already warns about for the two greens. `size` defaults to
+ * 22, TopNav's original fixed size, so that call site is unchanged. */
+const DARK_GREEN = "#006400";
+
+export function MacroTradeLogo({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" className="shrink-0">
+      <rect x="1" y="1" width="26" height="26" fill="#121418" stroke={DARK_GREEN} strokeWidth="1.5" />
+      <path
+        d="M6.5 20.5 L10.5 8.5 L14 15 L17.5 7.5 L21.5 20.5"
+        fill="none"
+        stroke={DARK_GREEN}
+        strokeWidth="3.2"
+        strokeLinejoin="miter"
+        strokeMiterlimit="4"
+        strokeLinecap="square"
+      />
+    </svg>
+  );
+}
 
 export function Panel({
   title,
@@ -17,27 +54,49 @@ export function Panel({
   children: React.ReactNode;
   className?: string;
 }) {
-  // Header type matches GroupHeader exactly (10px/semibold/uppercase/
-  // tracking-wide, same py-1) — both are "a bar that labels the section
-  // below it," and previously rendered as two different type scales (11px
-  // medium sentence-case here vs. 10px semibold uppercase there) for the
-  // same role. One header component, one look.
   return (
     <section className={`border border-term-edge bg-term-panel ${className}`}>
       {title ? (
-        // `flex-wrap` lets `right` (often a row of selects/segmented
-        // buttons — see the ~6 call sites that pass it) drop to its own
-        // line under the title instead of forcing this header, and
-        // everything that sizes off it, wider than the viewport on a phone.
-        // Zero effect wherever there's room for one line, which is every
-        // desktop width this was designed at. The `right` wrapper's own
-        // `min-w-0 overflow-x-auto` is a second line of defence for the
-        // rare case where `right` is still too wide even alone on its own
-        // line (e.g. two long dropdowns) — it scrolls in place rather than
-        // re-widening the header.
-        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-term-edge bg-term-raised px-2 py-1">
-          <h2 className="text-th font-semibold uppercase tracking-wide text-term-sub">{title}</h2>
-          {right ? <div className="min-w-0 overflow-x-auto">{right}</div> : null}
+        <header
+          // Matches GroupHeader's own base treatment exactly — title and
+          // `right` are both direct children of ONE flex row with
+          // justify-between, same as GroupHeader below, so `right` actually
+          // lands top-right next to the title instead of on a second row of
+          // its own. An earlier version put `right` in a separate stacked
+          // `<div>` below this header; that div had no justify-end, so
+          // `right` (Execution's "Clear All", Sensitivity's X/Y pickers)
+          // rendered flush-left under the title rather than beside it,
+          // despite this comment already claiming parity with GroupHeader.
+          // On request ("apply the builder heading colours and structure
+          // everywhere else"), every Panel title bar (every desk header on
+          // Trading, Sensitivity, P&L, Derivation, Execution included) uses
+          // the same flat bg-term-raised fill, border-y, and px-2/py-1
+          // spacing as Builder's own GROWTH/INFLATION/etc. group headers,
+          // rather than a separate grey fill of its own. --titlebar-grey-b
+          // (and --titlebar-grey-a before it) are left defined in
+          // globals.css rather than deleted, same reversibility convention
+          // as lib/montecarlo.ts and lib/format.ts's unused
+          // heatGradient/signFillGradient.
+          className="flex items-center justify-between gap-2 border-y border-term-edge bg-term-raised px-2 py-1"
+        >
+          {/* font-bold, not font-semibold, on request ("bold headers") —
+              see GroupHeader's own comment below; this stayed in lockstep
+              with it when the two were unified and does so again here.
+              shrink-0 so a long `right` control group never eats into the
+              title's own space before ScrollHint below gets a chance to
+              scroll it instead. */}
+          <h2 className="shrink-0 truncate text-th font-bold uppercase text-term-sub">{title}</h2>
+          {right ? (
+            // ScrollHint, not a plain overflow-x-auto div, by request
+            // ("resize correctly on every device") — this is every Panel's
+            // generic header-right slot (Sensitivity's X/Y variable pickers
+            // included), and the phone-width probe confirmed it genuinely
+            // overflows there with no visual cue it was scrollable, the
+            // same bug as every other overflow-x-auto wrapper fixed this
+            // pass. min-w-0 lets it actually shrink/scroll within the flex
+            // row instead of forcing the header wider than the panel.
+            <ScrollHint className="min-w-0">{right}</ScrollHint>
+          ) : null}
         </header>
       ) : null}
       {children}
@@ -127,8 +186,12 @@ export function Th({
 }) {
   const a = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   // Fixed leading (13px) so every header row renders at the same 22px height
-  // across browsers, rather than relying on the default line-height.
-  const base = `border-b border-term-edge text-th leading-[13px] font-medium uppercase tracking-wide text-term-muted ${a} ${className}`;
+  // across browsers, rather than relying on the default line-height. The
+  // `border-r` column rule a prior "super legacy" pass added here (an IB
+  // TWS Classic "Show grid lines in tables" config option) was removed
+  // outright on request — just the original `border-b` separating the
+  // header from the body stays.
+  const base = `border-b border-term-edge text-th leading-[13px] font-medium uppercase text-term-muted ${a} ${className}`;
   if (!onClick) {
     return <th className={`${base} px-2 py-dense`}>{children}</th>;
   }
@@ -168,7 +231,10 @@ export function Td({
 }) {
   const a = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   // Fixed leading (14px), same reasoning as Th. Padding is dense (3px) 8px
-  // per spec — dense rows, no wasted whitespace.
+  // per spec — dense rows, no wasted whitespace. The ruled `border-b
+  // border-r` grid a prior "super legacy" pass added between every body
+  // cell was removed outright, on request — back to plain whitespace
+  // between rows/columns, no rule lines in the table body at all.
   return (
     <td
       colSpan={colSpan}
@@ -202,21 +268,8 @@ export function Btn({
 }) {
   const cls = `relative border px-2.5 py-dense text-[11px] font-medium transition-none ${
     active
-      ? // Pressed-in rather than lit: bg-term-bg already reads as
-        // "sunk to the page," and a hard, zero-blur two-corner inset
-        // (dark top/left, faint light bottom/right — the inverse of
-        // the raised bevel below, the standard Windows/Swing "sunken"
-        // convention) makes that literal instead of a soft modern
-        // inset glow. A 1px downward nudge on the label sells the
-        // same "physically depressed" read a real key gets.
-        "z-10 translate-y-px border-info bg-term-bg text-term-text shadow-[inset_2px_2px_0_0_rgb(0_0_0_/_0.85),inset_-1px_-1px_0_0_rgb(255_255_255_/_0.05)]"
-      : // Raised: bg-term-raised + the global bevel-border rule
-        // already carry the flat fill and two-tone hard edge (see
-        // globals.css) — a Windows/Swing "button face," not a glossy
-        // gradient — so no extra shadow is needed here at all; one
-        // more blurred drop-shadow on top would be exactly the soft
-        // "modern card" effect this pass is removing.
-        "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
+      ? "z-10 translate-y-px border-info bg-term-bg text-term-text"
+      : "border-term-edge bg-term-raised text-term-muted hover:bg-term-line/30 hover:text-term-sub"
   } ${className}`;
 
   if (href) {
@@ -254,7 +307,13 @@ export function GroupHeader({
   right?: React.ReactNode;
   className?: string;
 }) {
-  const base = "w-full border-y border-term-edge bg-term-raised px-2 py-1 flex items-center justify-between text-th font-semibold uppercase tracking-wide text-term-sub";
+  // font-bold, not font-semibold, on request ("bold headers" — alongside
+  // the all-white text-colour pass in globals.css's term-muted/term-sub
+  // comment). With every text tier now the same white, weight is what
+  // separates "this is a section header" from "this is a row label or
+  // value" — Panel's own title (ui.tsx, above) stays unified with this on
+  // the same reasoning that originally unified the two header styles.
+  const base = "w-full border-y border-term-edge bg-term-raised px-2 py-1 flex items-center justify-between text-th font-bold uppercase text-term-sub";
   const label = onClick ? (
     <button type="button" onClick={onClick} className="flex flex-1 items-center text-left hover:text-term-text">
       {/* No colour of its own — inherits the button's text-term-sub at rest and

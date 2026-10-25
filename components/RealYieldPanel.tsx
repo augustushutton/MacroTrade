@@ -106,7 +106,7 @@ export default function RealYieldPanel({ state, assets }: { state: VarState; ass
           className="flex min-w-0 flex-col border-r border-term-edge px-2 py-1.5"
         >
           <div className="w-full">
-            <div className="truncate text-th uppercase tracking-wide text-term-muted">5s10s BE Steepness</div>
+            <div className="truncate text-th uppercase text-term-muted">5s10s BE Steepness</div>
             {/* On request — basis points shown as percent everywhere; these
                 four stats are still computed in bp (steepNowBp etc., see this
                 file's own bp-scaling comments above), divided by 100 only at
@@ -117,7 +117,7 @@ export default function RealYieldPanel({ state, assets }: { state: VarState; ass
                 {fmtPct((steepNowBp - steepBaseBp) / 100)} vs base
               </div>
             ) : (
-              <div className="text-th text-term-edge">unchanged</div>
+              <div className="text-th text-term-sub">unchanged</div>
             )}
           </div>
         </Tooltip>
@@ -126,14 +126,14 @@ export default function RealYieldPanel({ state, assets }: { state: VarState; ass
           className="flex min-w-0 flex-col border-r border-term-edge px-2 py-1.5"
         >
           <div className="w-full">
-            <div className="truncate text-th uppercase tracking-wide text-term-muted">10Y Real Yield (Implied)</div>
+            <div className="truncate text-th uppercase text-term-muted">10Y Real Yield (Implied)</div>
             <div className="font-mono tnum text-[13px] font-semibold text-term-text">{fmtPct(real10Now)}</div>
             {Math.abs(impliedNowBp - impliedBaseBp) > 0.5 ? (
               <div className={`font-mono tnum text-th ${signColor(impliedNowBp - impliedBaseBp, 0.5)}`}>
                 {fmtPct((impliedNowBp - impliedBaseBp) / 100)} vs base
               </div>
             ) : (
-              <div className="text-th text-term-edge">unchanged</div>
+              <div className="text-th text-term-sub">unchanged</div>
             )}
           </div>
         </Tooltip>
@@ -142,11 +142,11 @@ export default function RealYieldPanel({ state, assets }: { state: VarState; ass
           className="flex min-w-0 flex-col px-2 py-1.5"
         >
           <div className="w-full">
-            <div className="truncate text-th uppercase tracking-wide text-term-muted">Implied vs Input Gap</div>
+            <div className="truncate text-th uppercase text-term-muted">Implied vs Input Gap</div>
             <div className={`font-mono tnum text-[13px] font-semibold ${Math.abs(divergenceBp) > 0.5 ? signColor(divergenceBp, 0.5) : "text-term-text"}`}>
               {fmtPct(divergenceBp / 100)}
             </div>
-            <div className="text-th text-term-edge">term premium / other betas</div>
+            <div className="text-th text-term-sub">term premium / other betas</div>
           </div>
         </Tooltip>
       </div>

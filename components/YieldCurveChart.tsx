@@ -134,7 +134,7 @@ export default function YieldCurveChart({
         <div className="flex items-center gap-3">
           <span className="text-th normal-case tracking-normal text-term-muted">Drag a point to set that tenor directly</span>
           {anyPinned ? (
-            <button type="button" onClick={() => onResetGroup("curve")} className="text-th text-term-muted hover:text-down">
+            <button type="button" onClick={() => onResetGroup("curve")} className="text-th uppercase text-term-muted hover:text-down">
               <span aria-hidden className="mr-0.5">
                 &#8634;
               </span>

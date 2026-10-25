@@ -6,6 +6,7 @@ import { factorAttribution, type AssetResult, type EngineResult, type PortfolioR
 import { BOND_SLEEVE, PORTFOLIOS } from "@/lib/portfolios";
 import { fmtPct, fmtUsd, signColor, signFillBg, signFillFg } from "@/lib/format";
 import { Cap, GroupHeader, Panel, Td, Th, Tooltip, useFlash } from "./ui";
+import { ScrollHint } from "./ScrollHint";
 
 // Factor Attribution: which macro category actually drove the selected
 // portfolio's P&L, not just which asset moved. This is a proportional
@@ -18,7 +19,7 @@ function FactorAttributionPanel({ r, selected }: { r: EngineResult; selected: st
     return (
       <Panel title="Factor Attribution">
         <div className="px-3 py-4">
-          <Cap>Baseline &mdash; nothing to attribute yet.</Cap>
+          <Cap>Nothing to attribute yet.</Cap>
         </div>
       </Panel>
     );
@@ -164,7 +165,7 @@ function PortfolioRow({
             : "border-l-2 border-l-transparent text-term-sub"
         }
       >
-        {isSel ? <span className="text-info">&#9656;</span> : <span className="text-term-line">&#9656;</span>} {p.label}
+        {isSel ? <span className="text-info">&#9656;</span> : <span className="text-term-sub">&#9656;</span>} {p.label}
       </Td>
       <Td align="right" mono className="text-term-muted">
         {fmtUsd(notional)}
@@ -221,10 +222,13 @@ export function PortfolioSummary({
   const pctMax = Math.max(...r.portfolios.map((p) => Math.abs(p.pct)), 0.01);
   return (
     <Panel title="Portfolio Impact Summary">
-      <div className="overflow-x-auto">
+      <ScrollHint>
       {/* table-fixed, every column explicitly widthed — see the comment on
-          FactorAttributionPanel's table above for why. */}
-      <table className="w-full table-fixed border-collapse text-[11px]">
+          FactorAttributionPanel's table above for why. min-w added
+          alongside the same fix on the Bonds Asset Detail table below (see
+          its comment) — six columns including two dollar values compressed
+          illegibly instead of ever triggering this wrapper's scroll. */}
+      <table className="w-full min-w-[600px] table-fixed border-collapse text-[11px]">
         <thead>
           <tr className="bg-term-raised">
             <Th className="w-[18%]">Allocation</Th>
@@ -262,7 +266,7 @@ export function PortfolioSummary({
           ))}
         </tbody>
       </table>
-      </div>
+      </ScrollHint>
     </Panel>
   );
 }
@@ -326,25 +330,25 @@ function SectorRow({ s, r, hydrated, zebra }: { s: Asset; r: EngineResult; hydra
           "n/a" text and silent blanks, so the row reads as one consistent
           "not applicable" statement rather than a table that forgot to fill
           itself in. */}
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
       <Td align="right" mono className={`font-medium ${signColor(sr.pricePct)} ${priceFlash}`}>
         {fmtPct(sr.pricePct)}
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
     </tr>
@@ -384,14 +388,35 @@ function AssetRow({
 
   return (
     <React.Fragment>
-      <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      {/* `onClick={onTogglePin}` added to the row itself, on request ("if you
+          select anywhere on a row... that it stars it so you don't have to
+          click the exact star button") — the row's own hover highlight
+          (hover:bg-term-line/10) already signalled "this whole row is one
+          unit," so a click target narrower than that highlight was the
+          actual inconsistency. `cursor-pointer` makes that affordance
+          visible before the click, not just on hover. Every OTHER
+          interactive element nested inside this row — the star button
+          itself, the sector +/- toggle, the "view derivation" link on the
+          Price % cell — stops the click from bubbling up to this handler,
+          so clicking any of those still does ONLY what it already did
+          (without the stop, a click on the star button would fire both the
+          button's own onTogglePin AND the row's, toggling the pin twice —
+          net no-op — and a click meant to expand sectors or jump to
+          Derivation would silently also flip the pin). */}
+      <tr
+        onClick={onTogglePin}
+        className={`cursor-pointer hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}
+      >
         <Td>
           <div className="flex items-baseline gap-1">
             <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
               <button
                 type="button"
-                onClick={onTogglePin}
-                className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-edge hover:text-term-sub"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin();
+                }}
+                className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-sub"}`}
               >
                 {pinned ? "★" : "☆"}
               </button>
@@ -399,7 +424,10 @@ function AssetRow({
             {isSpx ? (
               <button
                 type="button"
-                onClick={() => setOpenSectors((v) => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenSectors((v) => !v);
+                }}
                 className="w-[9px] font-mono text-term-sub hover:text-term-text"
               >
                 {openSectors ? "-" : "+"}
@@ -411,7 +439,7 @@ function AssetRow({
           </div>
         </Td>
         <Td align="right" mono className="text-term-muted">
-          {w === undefined ? <span className="text-term-edge">&mdash;</span> : w.toFixed(1)}
+          {w === undefined ? <span className="text-term-sub">&mdash;</span> : w.toFixed(1)}
         </Td>
         {/* Rate/spread/yield are the SHOCK, not the P&L — a +3.91% yield
             move is bad for a bondholder, but colouring it red would mean
@@ -432,22 +460,25 @@ function AssetRow({
               own maths are untouched); dividing by 100 here is a display-only
               conversion. 2dp matches fmtBp's old default (whole bp = 1bp =
               0.01%), so no resolution is lost. */}
-          {ar.rateLegBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.rateLegBp / 100)}
+          {ar.rateLegBp === undefined ? <span className="text-term-sub">&mdash;</span> : fmtPct(ar.rateLegBp / 100)}
         </Td>
         <Td align="right" mono className="text-term-sub">
-          {ar.spreadBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.spreadBp / 100)}
+          {ar.spreadBp === undefined ? <span className="text-term-sub">&mdash;</span> : fmtPct(ar.spreadBp / 100)}
         </Td>
         <Td align="right" mono className="text-term-sub">
-          {ar.yieldBp === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(ar.yieldBp / 100)}
+          {ar.yieldBp === undefined ? <span className="text-term-sub">&mdash;</span> : fmtPct(ar.yieldBp / 100)}
         </Td>
         <Td align="right" mono className="text-term-muted">
-          {ar.duration === undefined ? <span className="text-term-edge">&mdash;</span> : ar.duration.toFixed(1)}
+          {ar.duration === undefined ? <span className="text-term-sub">&mdash;</span> : ar.duration.toFixed(1)}
         </Td>
         <Td align="right" mono className="p-0">
           <Tooltip content="View derivation" display="flex" className="w-full">
             <button
               type="button"
-              onClick={onJumpToDerivation}
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToDerivation();
+              }}
               className={`block w-full px-1.5 py-1 text-right font-medium ${signColor(ar.pricePct)} ${priceFlash}`}
             >
               {fmtPct(ar.pricePct)}
@@ -460,7 +491,7 @@ function AssetRow({
           className={`${contrib === undefined ? "" : signColor(contrib)} ${contribFlash}`}
           style={{ boxShadow: pinned && contrib !== undefined ? "inset 0 0 0 1.5px rgb(var(--warn))" : undefined }}
         >
-          {contrib === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(contrib)}
+          {contrib === undefined ? <span className="text-term-sub">&mdash;</span> : fmtPct(contrib)}
         </Td>
       </tr>
       {isSpx && openSectors
@@ -517,14 +548,22 @@ function AssetRowEquity({
 
   return (
     <React.Fragment>
-      <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+      {/* Same "click anywhere on the row to pin" treatment as AssetRow above
+          — see that component's own comment for the full reasoning. */}
+      <tr
+        onClick={onTogglePin}
+        className={`cursor-pointer hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}
+      >
         <Td>
           <div className="flex items-baseline gap-1">
             <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
               <button
                 type="button"
-                onClick={onTogglePin}
-                className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-edge hover:text-term-sub"}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin();
+                }}
+                className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-sub"}`}
               >
                 {pinned ? "★" : "☆"}
               </button>
@@ -532,7 +571,10 @@ function AssetRowEquity({
             {isSpx ? (
               <button
                 type="button"
-                onClick={() => setOpenSectors((v) => !v)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenSectors((v) => !v);
+                }}
                 className="w-[9px] font-mono text-term-sub hover:text-term-text"
               >
                 {openSectors ? "-" : "+"}
@@ -544,13 +586,16 @@ function AssetRowEquity({
           </div>
         </Td>
         <Td align="right" mono className="text-term-muted">
-          {w === undefined ? <span className="text-term-edge">&mdash;</span> : w.toFixed(1)}
+          {w === undefined ? <span className="text-term-sub">&mdash;</span> : w.toFixed(1)}
         </Td>
         <Td align="right" mono className="p-0">
           <Tooltip content="View derivation" display="flex" className="w-full">
             <button
               type="button"
-              onClick={onJumpToDerivation}
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToDerivation();
+              }}
               className={`block w-full px-1.5 py-1 text-right font-medium ${signColor(ar.pricePct)} ${priceFlash}`}
             >
               {fmtPct(ar.pricePct)}
@@ -563,7 +608,7 @@ function AssetRowEquity({
           className={`${contrib === undefined ? "" : signColor(contrib)} ${contribFlash}`}
           style={{ boxShadow: pinned && contrib !== undefined ? "inset 0 0 0 1.5px rgb(var(--warn))" : undefined }}
         >
-          {contrib === undefined ? <span className="text-term-edge">&mdash;</span> : fmtPct(contrib)}
+          {contrib === undefined ? <span className="text-term-sub">&mdash;</span> : fmtPct(contrib)}
         </Td>
       </tr>
       {isSpx && openSectors
@@ -580,13 +625,13 @@ function SectorRowEquity({ s, r, hydrated, zebra }: { s: Asset; r: EngineResult;
   return (
     <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : "bg-term-raised"}`}>
       <Td className="pl-6 text-term-muted">{s.label}</Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
       <Td align="right" mono className={`font-medium ${signColor(sr.pricePct)} ${priceFlash}`}>
         {fmtPct(sr.pricePct)}
       </Td>
-      <Td align="right" mono className="text-term-edge">
+      <Td align="right" mono className="text-term-sub">
         &mdash;
       </Td>
     </tr>
@@ -618,14 +663,22 @@ function AssetRowLean({
   if (!ar) return null;
 
   return (
-    <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}>
+    // Same "click anywhere on the row to pin" treatment as AssetRow above —
+    // see that component's own comment for the full reasoning.
+    <tr
+      onClick={onTogglePin}
+      className={`cursor-pointer hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""}`}
+    >
       <Td>
         <div className="flex items-baseline gap-1">
           <Tooltip content={pinned ? "Unpin" : "Pin to top"}>
             <button
               type="button"
-              onClick={onTogglePin}
-              className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-edge hover:text-term-sub"}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+              className={`w-[10px] leading-none ${pinned ? "text-warn" : "text-term-sub"}`}
             >
               {pinned ? "★" : "☆"}
             </button>
@@ -642,7 +695,10 @@ function AssetRowLean({
         <Tooltip content="View derivation" display="flex" className="w-full">
           <button
             type="button"
-            onClick={onJumpToDerivation}
+            onClick={(e) => {
+              e.stopPropagation();
+              onJumpToDerivation();
+            }}
             className={`block w-full px-1.5 py-1 text-right font-medium ${signColor(ar.pricePct)} ${priceFlash}`}
           >
             {fmtPct(ar.pricePct)}
@@ -760,9 +816,17 @@ export default function PnlTab({
       <FactorAttributionPanel r={r} selected={port.id} />
       <Panel title={`Asset Detail — ${port.label} weights`}>
         {/* Bonds: the one asset class where all 8 columns are real data —
-            full-width table, unchanged from before. */}
-        <div className="overflow-x-auto border-b border-term-edge">
-          <table className="w-full table-fixed border-collapse text-[11px]">
+            full-width table. min-w added by request ("resize correctly on
+            every device") — confirmed via a 390px-wide screenshot that
+            without it, table-fixed just divides the viewport by 8 instead
+            of ever triggering this wrapper's overflow-x-auto scroll, which
+            mashed every figure in the row together illegibly (worse than
+            Trading's Desk table, which already had a min-w and merely
+            lacked a visual scroll cue — see ScrollHint). 720px keeps every
+            header's full label on one line at the width this table
+            actually needs. */}
+        <ScrollHint className="border-b border-term-edge">
+          <table className="w-full min-w-[720px] table-fixed border-collapse text-[11px]">
             <thead>{fullHead}</thead>
             <tbody>
               <tr>
@@ -788,7 +852,7 @@ export default function PnlTab({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollHint>
 
         {/* Equities/Commodities/FX: none of them carry a rate/spread/yield/
             duration leg, and Commodities/FX never carry a portfolio weight
@@ -803,11 +867,33 @@ export default function PnlTab({
             with `mt-auto`, so a short card (Equities, 4 rows) ends in a
             deliberate summary bar at the same height as a long one, not a
             ragged edge of leftover white space. */}
-        <div className="grid grid-cols-1 gap-0 border-b border-term-edge p-2 sm:grid-cols-3">
+        {/* Always 3 columns, not 1-below-sm — the site no longer reflows
+            its layout for a narrow viewport (phone or a resized desktop
+            window): the whole page pans as one unit instead, via `<main>`'s
+            own `min-w-[1280px]` (providers.tsx) and `html`'s existing
+            `overflow-x: auto` (globals.css). These three cards used to be
+            `grid-cols-3`, i.e. three `minmax(0, 1fr)` tracks — a track with
+            a `0` floor is free to compress a card (and the table inside it)
+            below its own content's natural width, which is what forced
+            Equities' table into its own local `ScrollHint`/scroll island in
+            the first place (an arrow appearing mid-card to say "there's
+            more, scroll sideways here specifically"). That's exactly the
+            per-component shrinking this page is supposed to not do anymore.
+            Explicit `minmax(<floor>, 1fr)` tracks below give each card a
+            real floor — Equities' at 420px (its table's own genuine
+            per-table minimum: four columns, nine-ish figures), the other
+            two at a narrower floor that still fits their two columns — so
+            the tracks still grow to fill extra space at full width, but
+            never shrink a card's table below legibility. If all three
+            floors together don't fit the viewport, the three-card row
+            overflows the grid as a whole and the page's own existing
+            pan handles it, the same as everywhere else — not a chevron on
+            one card. */}
+        <div className="grid grid-cols-[minmax(420px,1fr)_minmax(260px,1fr)_minmax(260px,1fr)] gap-0 border-b border-term-edge p-2">
           <div className="flex flex-col border border-term-edge bg-term-panel">
             <GroupHeader>Equities</GroupHeader>
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed border-collapse text-[11px]">
+            <div>
+              <table className="w-full min-w-[420px] table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
                     <Th className="w-[44%]">Instrument</Th>
@@ -843,14 +929,14 @@ export default function PnlTab({
               </table>
             </div>
             <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
-              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className="text-th uppercase text-term-muted">Avg impact</span>
               <span className={`font-mono tnum text-[11px] font-medium ${signColor(equityAvg)}`}>{fmtPct(equityAvg)}</span>
             </div>
           </div>
 
-          <div className="-mt-px flex flex-col border border-term-edge bg-term-panel sm:mt-0 sm:-ml-px">
+          <div className="-ml-px flex flex-col border border-term-edge bg-term-panel">
             <GroupHeader>Commodities</GroupHeader>
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
@@ -877,14 +963,14 @@ export default function PnlTab({
               </table>
             </div>
             <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
-              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className="text-th uppercase text-term-muted">Avg impact</span>
               <span className={`font-mono tnum text-[11px] font-medium ${signColor(commodityAvg)}`}>{fmtPct(commodityAvg)}</span>
             </div>
           </div>
 
-          <div className="-mt-px flex flex-col border border-term-edge bg-term-panel sm:mt-0 sm:-ml-px">
+          <div className="-ml-px flex flex-col border border-term-edge bg-term-panel">
             <GroupHeader>FX</GroupHeader>
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full table-fixed border-collapse text-[11px]">
                 <thead>
                   <tr className="bg-term-raised">
@@ -911,16 +997,18 @@ export default function PnlTab({
               </table>
             </div>
             <div className="mt-auto flex items-center justify-between border-t border-term-edge bg-term-raised px-2 py-1">
-              <span className="text-th uppercase tracking-wide text-term-muted">Avg impact</span>
+              <span className="text-th uppercase text-term-muted">Avg impact</span>
               <span className={`font-mono tnum text-[11px] font-medium ${signColor(fxAvg)}`}>{fmtPct(fxAvg)}</span>
             </div>
           </div>
         </div>
-
-        <div className="flex items-center justify-between bg-term-raised px-2 py-1.5">
-          <span className="text-[11px] font-medium text-term-text">{port.label} total</span>
-          <span className={`font-mono tnum text-[11px] font-medium ${signColor(port.pct)}`}>{fmtPct(port.pct)}</span>
-        </div>
+        {/* A closing "{port.label} total" bar (e.g. "60/40 total") used to sit
+            here, repeating the exact figure Portfolio Impact Summary's own
+            Return (%) column already shows for the selected allocation —
+            removed on request ("remove the bottom section of the p&l that
+            says like 60/40 total 20/80 total etc"), since it was the same
+            number restated a second time at the foot of this panel rather
+            than new information. */}
       </Panel>
     </>
   );

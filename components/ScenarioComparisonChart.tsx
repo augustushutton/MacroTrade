@@ -125,7 +125,7 @@ export default function ScenarioComparisonChart({ assets }: { assets: Record<str
       }
     >
       {shown.length === 0 ? (
-        <div className="px-2 py-3 text-[11px] text-term-edge">
+        <div className="px-2 py-3 text-[11px] text-term-sub">
           No saved scenarios to compare yet — save one from My Scenarios above.
         </div>
       ) : (

@@ -47,7 +47,17 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "pmiMfg", b: 8 },
     { v: "pmiSvcs", b: 11 },
     { v: "unemployment", b: -30 },
-    { v: "productivity", b: -4 },
+    // Higher trend productivity growth raises the natural rate of interest
+    // (r*): the economy can run hotter without the Fed needing to hold
+    // policy as loose, and a bond market discounting faster trend growth
+    // asks a higher return to hold duration against it — the same textbook
+    // channel behind recent Fed tightening alongside a productivity/AI-
+    // investment surge. Positive here (yields rise), not negative. The
+    // opposite sign has a real but much narrower precedent (the late-1990s
+    // US, where productivity gains were disinflationary enough to let the
+    // Fed stay easier for longer) — the exception, not this table's base
+    // case.
+    { v: "productivity", b: 4 },
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -10 },
     { v: "realRate10y", b: 14 },
@@ -68,7 +78,8 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "pmiMfg", b: 10 },
     { v: "pmiSvcs", b: 12 },
     { v: "unemployment", b: -28 },
-    { v: "productivity", b: -6 },
+    // Same r*-channel sign as UST2Y's productivity row above.
+    { v: "productivity", b: 6 },
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 20 },
@@ -105,7 +116,8 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "pmiMfg", b: 10 },
     { v: "pmiSvcs", b: 12 },
     { v: "unemployment", b: -22 },
-    { v: "productivity", b: -6 },
+    // Same r*-channel sign as UST2Y's productivity row above.
+    { v: "productivity", b: 6 },
     { v: "regionalFed", b: 5 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 25 },
@@ -129,7 +141,8 @@ export const RATE_BETAS: Record<string, Beta[]> = {
     { v: "pmiMfg", b: 7 },
     { v: "pmiSvcs", b: 8 },
     { v: "unemployment", b: -16 },
-    { v: "productivity", b: -8 },
+    // Same r*-channel sign as UST2Y's productivity row above.
+    { v: "productivity", b: 8 },
     { v: "vix", b: -12 },
     { v: "realRate10y", b: 26 },
     { v: "deficitGdp", b: 14 },

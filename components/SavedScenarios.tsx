@@ -70,7 +70,7 @@ export default function SavedScenarios() {
               e.stopPropagation();
               setNaming(true);
             }}
-            className="text-th text-term-muted hover:text-term-text"
+            className="text-th uppercase text-term-muted hover:text-term-text"
           >
             <span aria-hidden className="mr-0.5">
               +
@@ -102,7 +102,7 @@ export default function SavedScenarios() {
               type="button"
               onClick={handleSave}
               disabled={!name.trim()}
-              className="border border-term-edge bg-term-raised px-2 py-hair text-th font-medium uppercase tracking-wide text-term-sub hover:bg-term-line/30 hover:text-term-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-term-raised disabled:hover:text-term-sub"
+              className="border border-term-edge bg-term-raised px-2 py-hair text-th font-medium uppercase text-term-sub hover:bg-term-line/30 hover:text-term-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-term-raised disabled:hover:text-term-sub"
             >
               Save
             </button>
@@ -119,7 +119,7 @@ export default function SavedScenarios() {
           </div>
         ) : null}
         {list.length === 0 ? (
-          <div className="px-2 py-3 text-[11px] text-term-edge">No saved scenarios.</div>
+          <div className="px-2 py-3 text-[11px] text-term-sub">No saved scenarios.</div>
         ) : (
           <div>
             {list.map((s, i) => {
@@ -145,7 +145,7 @@ export default function SavedScenarios() {
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span
                         className={`shrink-0 font-mono ${
-                          isSel ? "text-term-panel" : "text-term-edge group-hover:text-term-text"
+                          isSel ? "text-term-panel" : "text-term-sub group-hover:text-term-text"
                         }`}
                       >
                         &rsaquo;
@@ -156,7 +156,7 @@ export default function SavedScenarios() {
                       aria-hidden
                       onClick={(e) => handleDelete(s.id, e)}
                       className={`shrink-0 px-1 font-mono leading-none ${
-                        isSel ? "text-term-panel hover:text-down" : "text-term-edge hover:text-down"
+                        isSel ? "text-term-panel hover:text-down" : "text-term-sub hover:text-down"
                       }`}
                       title="Delete"
                     >

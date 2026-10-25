@@ -838,7 +838,9 @@ function niceStep(roughStep: number): number {
 }
 
 /** Two-variable surface over the portfolio return. Grid is odd-sized so the
- *  current setting sits exactly on the centre cell rather than between two. */
+ *  current setting sits exactly on the centre cell rather than between two —
+ *  true for every case except a variable already sitting exactly on its own
+ *  min/max, where no centred window is mathematically possible at all. */
 export function heatGrid(
   input: ScenarioInput,
   portfolioId: string,
@@ -858,29 +860,39 @@ export function heatGrid(
   // Ticks are then snapped to a nice round step, not spaced by evenly
   // dividing that raw window — an even division prints ticks like
   // 0.00/1.17/2.33/3.50 for Fed Funds Target, which is not how anyone reads
-  // a policy-rate grid. The window shifts (not clamps per-point) to stay
-  // inside [min, max] once snapped, which keeps every tick a clean multiple
-  // of `step` instead of collapsing boundary ticks onto a repeated value.
+  // a policy-rate grid.
+  //
+  // The window is anchored ON `current` (lo = current - half*step, hi =
+  // current + half*step), not on a separately-snapped rawLo — an earlier
+  // version snapped lo to `Math.floor(rawLo / step) * step`, which is a
+  // clean multiple of `step` but generally NOT `current - half*step`, so
+  // the centre cell silently drifted away from `current` (confirmed off by
+  // a full step for Fed Funds/Forward Guidance, and by 12 units for VIX in
+  // one case) — exactly the invariant this function's own doc comment
+  // promises.
+  //
+  // Keeping the window inside [v.min, v.max] is handled by capping `step`
+  // itself to whichever side of `current` has less room, BEFORE the window
+  // is built — not by building a fixed-width window and shifting it to fit
+  // afterwards, which is what breaks centring (a shift moves the window but
+  // not `current`'s place in it). Capped this way, the window never needs
+  // to shift: the only case it can't be exactly centred is `current`
+  // sitting exactly on its own min or max, where no centred window of any
+  // width is possible — SensitivityTab.tsx marks the centre cell by finding
+  // the value nearest `current` rather than assuming the middle index, so
+  // even that one genuinely-impossible case still highlights the closest
+  // cell rather than a wrong one.
   const axis = (v: typeof vx, current: number) => {
-    const rawLo = Math.max(v.min, current - 4 * v.norm);
-    const rawHi = Math.min(v.max, current + 4 * v.norm);
-    const totalRange = Math.max(v.max - v.min, 1e-9);
-    let step = niceStep((rawHi - rawLo) / (size - 1));
-    for (let i = 0; i < 12 && step * (size - 1) > totalRange; i++) {
+    const half = (size - 1) / 2;
+    const maxHalfSpan = Math.max(Math.min(current - v.min, v.max - current), 0);
+    const rawSpan = Math.min(8 * v.norm, 2 * maxHalfSpan);
+    let step = niceStep(rawSpan / (size - 1));
+    for (let i = 0; i < 12 && step * half > maxHalfSpan; i++) {
       step = niceStep(step / 2);
     }
-    if (step * (size - 1) > totalRange) step = totalRange / (size - 1);
+    if (step * half > maxHalfSpan) step = maxHalfSpan / half;
 
-    let lo = Math.floor(rawLo / step) * step;
-    let hi = lo + step * (size - 1);
-    if (hi > v.max) {
-      lo -= hi - v.max;
-      hi = v.max;
-    }
-    if (lo < v.min) {
-      hi += v.min - lo;
-      lo = v.min;
-    }
+    const lo = current - half * step;
     const out: number[] = [];
     for (let i = 0; i < size; i++) out.push(+(lo + i * step).toFixed(6));
     return out;

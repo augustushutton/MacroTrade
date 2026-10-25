@@ -3,31 +3,74 @@
 @tailwind utilities;
 
 /* Colour tokens as "R G B" triplets so Tailwind's alpha modifier can apply
-   opacity. :root holds the light palette (unused — dark mode is locked);
-   .dark overrides the same names and every component repaints from it.
+   opacity. :root holds the light palette (dark is the default again for
+   every visitor; light is reachable as a manual opt-in — see
+   lib/theme.tsx); .dark overrides the same names and every component
+   repaints from it.
    Desaturated, low-contrast "enterprise desktop" palette — no neon, no
    saturated accents. Hierarchy comes from the 1px border colour, not from
-   background-colour steps, so term-raised sits only marginally off panel. */
-:root {
-  --term-bg: 238 240 242;
-  --term-panel: 255 255 255;
-  --term-raised: 244 245 246;
-  --term-line: 184 190 198;
-  --term-edge: 100 107 115;
-  --term-muted: 102 108 115;
-  --term-sub: 85 89 95;
-  --term-text: 20 23 26;
+   background-colour steps, so term-raised sits only marginally off panel.
 
-  --up: 0 120 90;
-  --down: 192 58 18;
-  /* Brighter pair reserved for signColor's plain number/text colouring only
-     — see the .dark block below for the full reasoning. Deeper than the
-     dark theme's, same as every other token here, for contrast on a white
-     ground instead of near-black. */
-  --up-bright: 21 128 61;
-  --down-bright: 220 38 38;
-  --warn: 140 92 5;
-  --info: 3 105 161;
+   Toned down a pass after a light-mode preview screenshot ("a little less
+   white and bright... contrast and brightness is super intense"). Panel
+   was pure #FFFFFF and text was near-black (20,23,26) — the harshest
+   possible pairing, and heatBg/signFillBg (lib/format.ts) alpha-blend the
+   --up/--down fills over whatever sits behind them, so a glaring white
+   panel was also why the P&L heatmap read as so saturated. Panel dropped
+   to a soft warm off-white, bg/raised stepped down to match, and every
+   other grey nudged down the same amount so the existing hierarchy
+   (bg < raised < panel, text > sub > muted) holds exactly as before — just
+   at lower overall contrast.
+
+   Pushed back the other way on request a turn later ("make the txt darker
+   and the reds and greens the same as they were when it was dark mode for
+   the fake screenie"): term-text moved back down near its original depth
+   — the panel/bg softening above stays, only the text itself got darker
+   again — and --up/--down/--up-bright/--down-bright are now the literal
+   .dark block values below, not a separately toned light-mode pair, so the
+   heatmap/P&L fills in this still-dormant preview read exactly as
+   saturated as they do in the real, live dark theme.
+
+   --term-zebra added on request ("do a slide alternative row color thing"
+   / "now show that for every page") — it was simply never defined here, so
+   every bg-term-zebra row (Builder's variable lists, Derivation's nested
+   asset tables, anywhere else that alternates rows) silently fell back to
+   an invalid custom property and rendered with no striping at all, unlike
+   .dark below which has always had one. Set to the "Moderate" strength from
+   that comparison: visible enough to track a row across a wide table
+   without competing with the amber shocked-cell highlight.
+
+   term-muted/term-sub collapsed onto term-text here too, same pass and
+   same reasoning as the .dark block's own "lifted a fourth time" comment
+   below ("make text overall white just everywhere... intense contrast") —
+   mirrored to its darkest-ink equivalent rather than literal white, since
+   this palette's surfaces run light, not dark: all three tiers are now the
+   same near-black ink, for the same maximum-contrast-against-the-surface
+   effect .dark gets from pure white. This theme is still dormant (dark is
+   the default for every visitor — see the block comment above), kept in
+   lockstep on principle. */
+:root {
+  --term-bg: 222 223 221;
+  --term-panel: 241 240 236;
+  --term-raised: 233 232 228;
+  --term-zebra: 227 226 220;
+  --term-line: 192 194 196;
+  --term-edge: 114 118 122;
+  --term-muted: 22 24 27;
+  --term-sub: 22 24 27;
+  --term-text: 22 24 27;
+
+  --up: 31 122 55;        /* #1F7A37, same as .dark's --up — see that block's comment */
+  --down: 204 0 0;       /* #CC0000, same as .dark's --down */
+  --up-bright: 46 160 67;      /* #2EA043, same as .dark's --up-bright */
+  --down-bright: 237 28 36;  /* #ED1C24, same as .dark's --down-bright */
+  --warn: 140 70 8;        /* #8C4608, same shift as .dark's --warn — see that block's comment */
+  --info: 20 98 148;
+
+  --titlebar-blue-a: 0 0 128;
+  --titlebar-blue-b: 16 132 208;
+  --titlebar-grey-a: 150 152 158;
+  --titlebar-grey-b: 200 202 208;
 }
 
 .dark {
@@ -40,178 +83,411 @@
      though getComputedStyle correctly reported black — the CSS was right,
      the browser's native paint was overriding it a layer below CSS. */
   color-scheme: dark;
-  /* Grey/black ladder reverted on request, back to MacroTrade's own prior
-     values — the pixel-matched TWS chrome (true-black canvas, #494949
-     "raised" step) that briefly lived here made header/toolbar surfaces
-     much lighter than the rest of this app ever looked, and that's being
-     undone while keeping the IB-measured --up/--down signal colours below
-     and the brighter text hierarchy untouched — this edit is scoped to
-     grey/black only. */
-  --term-bg: 8 8 8;         /* #080808 — near-black canvas */
-  --term-panel: 17 17 17;   /* #111111 */
-  --term-raised: 30 30 30;  /* #1E1E1E — clearly a step above panel now */
-  --term-zebra: 13 13 13;   /* alternate row shade */
-  --term-input: 0 0 0;      /* recessed field bg — literal black */
-  --term-line: 56 56 58;    /* #38383A — neutral, not blue-grey */
-  --term-edge: 56 56 58;    /* one border colour throughout, per spec */
+  /* Grey/black ladder reverted on request a second time, now back to this
+     app's TRUE original values (confirmed against this repo's own git
+     history — these are literally what was on the page before this entire
+     styling pass started, not a mid-session approximation of it). The
+     previous "revert" actually landed on this session's own step-(d)/(e)
+     TWS-palette values (8/17/30), which were already a departure from the
+     real original (3/12/24) — this corrects that. Scoped to grey/black
+     only, same as before: the IB-measured --up/--down below and the
+     brighter text hierarchy stay untouched. */
+  /* Hue neutralised, on request ("even older... fonts, coloring, hues,
+     everything... early 2000s/2010s look") — darkness levels are
+     UNCHANGED from the true-original ladder above (the same bg/panel/
+     raised/zebra steps the user fought to get back twice already stay
+     exactly that dark), but the grey itself is desaturated from a cool
+     blue-tinted grey (B channel running ~20 above R) to a true neutral
+     grey (R≈G≈B). A blue-tinted dark grey is a specifically MODERN
+     convention — macOS dark mode, VS Code, Discord, every post-2015 "dark
+     UI" all lean blue for exactly this reason (it reads as considered,
+     designed). Genuine early-2000s/2010s enterprise and trading software
+     didn't do that kind of colour grading at all; its dark greys (where it
+     had them) were flat and neutral because nobody was deliberately tuning
+     a hue cast. Removing the blue is a bigger "this wasn't designed in the
+     last decade" tell than darkening or lightening the ladder would be. */
+  --term-bg: 4 4 4;          /* was #030405 (cool) — now neutral near-black */
+  --term-panel: 14 14 14;    /* was #0C0D10 */
+  --term-raised: 26 26 26;   /* was #181A1F — still a clear step above panel */
+  --term-zebra: 7 7 7;       /* alternate row shade */
+  --term-input: 0 0 0;       /* recessed field bg — literal black, unchanged */
+  --term-line: 70 70 70;     /* was #3E4350 (cool) — now neutral mid-grey */
+  --term-edge: 70 70 70;     /* one border colour throughout, per spec */
 
-  /* Text hierarchy lifted brighter across the board, on request ("fonts and
-     wording more white so contrast is more obvious") — term-text was
-     already pure white; term-sub/term-muted are the two that move, each
-     pushed further toward white while keeping their relative spacing so
-     the three-step hierarchy (text > sub > muted) still reads:
+  /* Text hierarchy lifted brighter a second time, on request ("make all
+     text a bit whiter so it is more visible and doesn't disappear in the
+     grey") — term-text was already pure white and stays there; term-sub/
+     term-muted are the two that move again, each pushed further still
+     toward white. term-muted (column headers, captions, static context
+     values) was the one actually at risk of vanishing against a
+     bg-term-raised cell — especially now that those cells carry the glossy
+     highlight gradient, which lightens the grey underneath exactly where
+     muted text sits — so it gets the bigger jump of the two; term-sub
+     follows by a smaller step to keep the three-step hierarchy (text > sub
+     > muted) legible rather than collapsing into one shade of near-white:
      term-text  — primary values: P&L figures, selected rows.
      term-sub   — row labels, instrument names, body copy.
-     term-muted — column headers, captions, static context values. */
-  --term-muted: 180 180 182;
-  --term-sub: 225 225 227;
-  --term-text: 255 255 255;  /* pure white */
+     term-muted — column headers, captions, static context values.
 
-  /* Signal colours pixel-sampled from the same TWS screenshot's Monitor
-     watchlist CHANGE column — not an eyeball match. Measured the mean of
-     every saturated (non-grey, non-text) pixel across the full red fill
-     column (13 rows, NLNK through BUD) and the full green fill column (10
-     rows, BABA through NVDA) separately: red averaged to (160, 15, 15),
-     green to (8, 58, 10). Brightened on request ("brighten the red and
-     greens... in the colored rectangles, not the text") — the raw measured
-     mean read as too dark/muddy once it was actually on screen filling a
-     cell, versus just sampled as a data point. Lifted lightness only (HSL
-     L+0.12, same hue/saturation as the measured colour) rather than picked
-     freehand, and kept well short of the --up-bright/--down-bright pair
-     below (+0.20) so the two stay visually distinct — these are still the
-     fill pair (signFillBg/heatBg and everything else that needs white text
-     legible on top of a solid block), not the plain-text pair. */
-  --up: 15 112 19;      /* #0F7013, measured green lifted +0.12L */
-  --down: 216 20 20;    /* #D81414, measured red lifted +0.12L */
+     Lifted a third time, on request ("make text whiter"). term-text is
+     already at the ceiling (255), so this round moves only the other two —
+     term-muted again gets the bigger jump of the two, same reasoning as
+     the second pass above: it's the tier furthest from white and the one
+     sitting on the most different backgrounds (raised headers, panel
+     captions, input placeholders), so it's the one that actually goes
+     grey-on-grey first. term-sub follows by a smaller step, preserving the
+     same three-step ladder rather than letting all three collapse into one
+     shade once term-muted gets close enough to it.
 
-  /* Brighter pair, reserved for signColor's plain number/text colouring
-     ONLY — a bare "+2.4%" sitting on the ordinary panel background with
-     nothing behind it, untouched by the --up/--down brightening above (the
-     user asked for the rectangles, explicitly not the text). --up/--down
-     stay dark enough for white text and keep doing every OTHER job in the
-     app: the solid block fills (signFillBg/signFillFg), the Sensitivity
-     heatmap (heatBg/heatFg), and every chart (the Monte Carlo histogram,
-     the two-variable surface's gradient legend, SignedBar) — all of those
-     need a fill dark enough that white text stays legible on top of it, or
-     a colour muted enough not to fight the rest of the chart. Plain text
-     has no such constraint (it sits on the near-black ground, not on its
-     own saturated fill), so it reads as a real, punchy green/red the way a
-     trader expects a live P&L figure to. Originally derived from the
-     pixel-measured --up/--down (HSL L+0.20 off the unbrightened mean, same
-     hue/saturation) — kept as its own fixed pair rather than re-derived
-     from the now-brighter --up/--down above, which would have collapsed
-     the two into nearly the same colour. */
-  --up-bright: 20 148 25;    /* #149419 */
-  --down-bright: 236 40 41;  /* #EC2829 */
-  --warn: 185 138 62;
-  --info: 43 108 176;  /* #2B6CB0, flat muted blue for selection/focus */
+     Lifted a fourth time, on request ("make text overall white just
+     everywhere... the amount you see fit so the intense contrast is
+     visible between the black/grey and the white text"). Rather than one
+     more incremental step, this is the ceiling: term-muted and term-sub
+     both go to the literal same 255/255/255 as term-text, so every label,
+     caption, and value in the app reads as the same maximally-bright white
+     against this theme's black/near-black surfaces — no more three-step
+     grey ladder to fall off of. The text-hierarchy job that ladder used to
+     do (primary value vs. row label vs. caption) now falls to WEIGHT
+     instead of shade — see GroupHeader/Panel/Th's own comments for the
+     matching "bold headers" pass this came with. Signal colours
+     (up/down/warn/info) are untouched; this is text only. */
+  --term-muted: 255 255 255;
+  --term-sub: 255 255 255;
+  --term-text: 255 255 255;  /* pure white — all three tiers now identical */
+
+  /* Signal/accent hues replaced outright, on request ("even older...
+     fonts, coloring, hues, everything... early 2000s/2010s look"). The
+     previous pair was pixel-measured off a real TWS screenshot and then
+     deliberately lightness-lifted for legibility — a careful, "designed"
+     derivation, which is itself the tell that doesn't belong here. Early-
+     2000s/2010s enterprise and trading software (this generation of IB
+     TWS/Sierra Chart included) didn't tune colours off a sampled source at
+     all — red meant red, green meant green, picked as a flat, saturated
+     primary and left alone. Swapped for exactly that: classic HTML "green"
+     (0,128,0) and a flat Windows-XP-era alert red (204,0,0), with the
+     bright pair pushed up from the same two hues rather than re-measured
+     from anything. --info is the one swap that does the most work by
+     itself: #316AC5 is not an arbitrary blue, it's the literal Windows
+     2000/XP "Classic" theme's listview/listbox selection-highlight colour
+     — the exact blue a selected row, a focused field, or an active tab
+     turned on millions of machines for the better part of a decade. Using
+     the genuine article here (instead of a blue that merely resembles it)
+     is doing more to sell "old Windows software" than the bevel or the
+     font are individually.
+
+     --up/--up-bright moved off that literal (0,128,0)/(0,180,0) pair on a
+     later request ("make the green tones look more terminal and finance
+     like, not lime... less neon"). Pure web-safe green is zero red and
+     zero blue — that's exactly what read as a lime/neon pop rather than
+     the "money green" a real trading screen uses, because every other
+     colour in this palette (the reds included) carries at least a little
+     of the other channels. Brought R and B up off zero the same way — a
+     muted, slightly forest-toned green instead of a pure primary — while
+     keeping the lightness/legibility roughly where it was, so nothing
+     that depends on --up's brightness (heatBg/signFillBg's alpha-blended
+     fills, the a>0.5 white-text threshold in lib/format.ts) needed to
+     change. --down/--down-bright are untouched; only green moved. */
+  --up: 31 122 55;        /* #1F7A37, muted forest/"money" green — not a pure web-safe primary */
+  --down: 204 0 0;       /* #CC0000, classic Windows-era alert red */
+
+  --up-bright: 46 160 67;      /* #2EA043 */
+  --down-bright: 237 28 36;  /* #ED1C24, classic "pure" red swatch */
+  /* Pushed further toward orange on request ("more amber" — VarForm's
+     shocked-variable highlight, bg-warn/border-warn, was reading as plain
+     yellow). The old (221,170,34) had G sitting close enough to R that the
+     hue landed right on the yellow/amber boundary; G dropped and R nudged
+     up moves the same flat, fully-saturated swatch a bit further round the
+     wheel toward orange without losing any saturation — still "pick a hue
+     and leave it alone," same as --up/--down, just a different hue. This is
+     the one shared --warn token (globals.css only defines it once per
+     theme), so every amber accent that reads off it moves together: the
+     Builder shocked-variable fill that prompted this, plus Sensitivity's
+     and P&L's own amber spotlights and SavedScenarios' selected-portfolio
+     highlight — all the same paint, not independently re-tuned. */
+  --warn: 230 140 20;        /* #E68C14, flat amber, no desaturation */
+  --info: 49 106 197;  /* #316AC5 — Windows 2000/XP Classic selection blue */
+
+  /* Added for the MDI title-bar pass ("ultra-legacy... go all in" — see the
+     Panel/TopNav comments where these are consumed). Two gradient pairs,
+     not one, because a real multi-window Win95/98 desktop is never all one
+     colour: exactly one window is "active" at a time and gets the iconic
+     navy-to-steel-blue caption gradient (#000080 → #1084D0, the actual
+     default "Windows Standard" active-titlebar colours); every other
+     window sitting behind it gets the plain grey "inactive" gradient
+     instead. This app only ever shows one top-level frame, so the blue
+     pair was reserved for TopNav's own outer title bar (the one thing that
+     IS "the active window"); every Panel underneath it is, by that same
+     logic, always an inactive MDI child, so it gets the grey pair.
+
+     --titlebar-blue-a/b briefly went UNUSED when TopNav's bar was flattened
+     to #000000 on an earlier request, then were asked back ("add back the
+     blue gradient at the top") — TopNav's caption bar is back to the
+     gradient(-a → -b) using these two, so they're back in active use. */
+  --titlebar-blue-a: 0 0 128;      /* #000080, classic Windows active titlebar start */
+  --titlebar-blue-b: 16 132 208;   /* #1084D0, classic Windows active titlebar end */
+  /* --titlebar-grey-a/b are now BOTH UNUSED — on a later request ("remove
+     the grey tab structure outside builder... apply the builder heading
+     colours and structure everywhere else"), ui.tsx's Panel header no
+     longer fills with --titlebar-grey-b at all; it now uses the exact same
+     flat bg-term-raised/border-y treatment as GroupHeader (Builder's own
+     group headers), so every Panel title bar across the app matches
+     Builder's structure instead of having its own distinct grey. Left on
+     disk rather than deleted, same reversibility convention as
+     lib/montecarlo.ts — a one-line revert in ui.tsx brings this fill back
+     if it's ever wanted again.
+
+     -b itself went through three tunings: originally 78 (paired with -a's
+     42, as a gradient's far end); widened to 112 so a left-right gradient
+     read as unmistakably a gradient rather than a near-flat fill; then,
+     once the header went flat-fill-only, 112 read as true light grey —
+     "chrome," not this app's own near-black palette. On request ("make it
+     match the rest of the background... but not completely — a bit
+     brighter so we can still see the dominant header"), it's now pulled
+     straight from the SAME ladder every other surface in this theme
+     climbs: --term-bg 4 → --term-panel 14 → --term-raised 26 →
+     [header] 46 → --term-line/--term-edge 70. 46 sits as its own rung
+     between "raised" (the colour a table's own thead row already uses)
+     and "line/edge" (this app's borders) — one deliberate step brighter
+     than the content under the header so the title bar still reads as the
+     dominant element on the panel, but built from the same neutral
+     near-black family as everything else, not a disconnected true-grey
+     value imported from nowhere. */
+  --titlebar-grey-a: 34 36 40;
+  --titlebar-grey-b: 46 46 48;
 }
 
-/* Depth, on request — a sixth pass pushing further than the fifth's hairline
-   bevels toward an actually chunky, older piece of hardware: a 2010s flat
-   dashboard uses 1px hairlines; a 1990s Windows/Java Swing control used
-   bevels you could see from across the room. Every rule below keeps the
-   fifth pass's core discipline (flat fills, zero blur, no gradients — this
-   still doesn't glow) but widens the bevel lines themselves from 1px to 2px
-   and raises their contrast, plus thickens the outer two-tone border on
-   raised controls from 1px to 2px so a button or header bar reads as a
-   physical, stamped-metal face rather than a thin outline hinting at one. */
-@layer components {
-  /* Bordered panels (Panel, VarForm's wrapper, PresetBar — anything built
-     from the same "border-term-edge + bg-term-panel" pair) stay a flat
-     fill — no gradient — with only a top highlight, zero blur. Separation
-     from the page comes from the two-tone bevel border below, not from a
-     drop shadow; nested trays in a real trading terminal are flush against
-     each other, not floating on a soft shadow. The compound selector keeps
-     this off things that merely share the panel background without being a
-     card — TopNav's header bar, a sticky table row — since neither also
-     carries border-term-edge. */
-  .border-term-edge.bg-term-panel {
-    position: relative;
-    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.11);
-  }
+/* Hard Win95/98-era bevel, on request ("make this look even older... really
+   trying to go the look of legacy software like Interactive [Brokers] and
+   Sierra [Chart]... a little too modern") — researched against both: IB's
+   own TWS Classic config pages describe ruled grid lines, a 0–4 alternating-
+   row-brightness scale, and windows that default to NO os title bar (true
+   MDI child panels floating inside one app frame); Sierra Chart is
+   consistently described as having an "outdated design" essentially
+   unchanged since the Windows 95/98 MDI era. Neither of those platforms'
+   actual chrome uses a smooth gradient sheen — that's a 2000s Web
+   2.0/Aqua-glass convention, which is what the previous two passes
+   (".bg-term-raised"'s gloss) actually were. This pass replaces that gloss
+   outright with the real thing: a hard, zero-blur two-tone bevel built from
+   nothing but per-side border-colour, exactly how a real Win95 GDI control
+   draws itself (light edge where the light "hits" top-left, dark edge
+   top-right/bottom-right) — no box-shadow, no gradient, no blur, because
+   the genuine article doesn't have any of those; it's just four border
+   colours. `.border-term-edge.bg-term-raised` is unlayered (like `.dark`
+   above) so it beats the `.border-term-edge` utility's flat border-colour —
+   Tailwind's "utilities" layer sits above "components" — and this one
+   selector covers every unpressed button/tab/header bar with no
+   per-component changes, same mechanism the pre-flatten bevel system used.
+   `.border-term-edge.bg-term-input` gets the inverse (dark top-left, light
+   bottom-right): a real Win95 text field is recessed INTO the page, not
+   raised off it, and every input in this app (VarForm's numeric fields,
+   Trading's notional box, Saved Scenarios' rename field) already pairs
+   bg-term-input with border-term-edge, so — again — no per-component
+   changes needed. Deliberately NOT applied to the app's colour-accented
+   "selected" states (Btn's active segment, TopNav's open tab, SideToggle,
+   Fill Order's confirmed state, the warn-coloured pinned/dominant rings in
+   PnlTab/SavedScenarios): those already carry their own established
+   border-info/border-up/border-warn accent as the selection signal, which a
+   black/white bevel override would just erase without adding anything —
+   losing a working, readable cue in exchange for depth nobody asked to see
+   on exactly the elements the user needs to find fastest.
 
-  /* Every "raised" surface — panel headers, GroupHeader bars, the stepper
-     buttons in VarForm, a SignedBar's track — is a flat fill with a hard
-     top-lit / bottom-shadowed band, zero blur: the classic "button face"
-     bevel, widened to 2px and pushed higher-contrast so it reads as a
-     stamped, physical edge rather than a thin outline — not a glossy
-     sheen. One rule, because it's one visual idea applied everywhere the
-     raised token already is. */
-  .bg-term-raised {
-    box-shadow:
-      inset 0 2px 0 0 rgb(255 255 255 / 0.32),
-      inset 0 -2px 0 0 rgb(0 0 0 / 0.88);
-  }
-
-  /* Recessed fields — VarForm's numeric inputs, the delivery-path preview —
-     get the inverse hard bevel: a dark top/left band and a faint light
-     bottom/right band, widened to 2px and zero blur, exactly inverted from
-     the raised button's bevel above — the standard Windows/Swing "sunken
-     field" convention taken further into "you can feel the notch," not a
-     soft modern inset shadow. */
-  .bg-term-input {
-    box-shadow:
-      inset 2px 2px 0 0 rgb(0 0 0 / 0.92),
-      inset -2px -2px 0 0 rgb(255 255 255 / 0.09);
-  }
-}
-
-/* Unlayered (like .dark above) so it beats the .border-term-edge utility's
-   flat border-color — Tailwind's layer order puts "utilities" above
-   "components", so a components-layer override here would silently lose.
-   This two-tone bevel border is the main thing selling "hardware, not
-   glow": a hard light edge top/left, a hard dark edge bottom/right — the
-   literal outset-button convention, pushed to higher contrast than before
-   so it reads as a physical stamped edge. Border-WIDTH stays 1px here on
-   purpose, even though the bevel box-shadows above went to 2px: a
-   segmented control (TopNav's tabs, the Path/Horizon selector) butts its
-   buttons edge-to-edge with a `-ml-px` collapse that assumes a uniform 1px
-   border across both its active state (border-info, not this rule) and
-   its inactive one (this rule) — widening only the inactive border would
-   throw that collapse out of alignment. The static trays that hold these
-   controls (Panel/VarForm/PresetBar's own outer frame) get a quieter
-   version of the same two-tone edge, because the window itself is also a
-   physical tray in a real terminal, just calmer than the buttons on it. */
+   Pushed a second time ("even older... super legacy") toward the real
+   Win95 double bevel this first pass explicitly stopped short of. A
+   genuine Win95 GDI 3D border is TWO 1px rings, not one (an outer
+   white/black ring, then an inner light-grey/dark-grey ring just inside
+   it) — that second ring is most of what reads as "chunky hardware" rather
+   than "thin highlight." CSS can't put two different colours on one border
+   side, so the inner ring is a second, separate, zero-blur `box-shadow`
+   (not a soft shadow — a 1px-offset, 0-blur inset ring, the standard
+   technique for faking a pixel-exact OS bevel in CSS) layered just inside
+   the existing border — the border-width itself stays 1px, so the
+   `-ml-px`-collapsing segmented controls (TopNav's tabs, Path/Horizon) are
+   still unaffected; only the box-shadow ring adds the extra pixel of
+   depth, and box-shadow never participates in layout or border collapse. */
 .border-term-edge.bg-term-raised {
-  border-top-color: rgb(255 255 255 / 0.5);
-  border-left-color: rgb(255 255 255 / 0.34);
-  border-bottom-color: rgb(0 0 0 / 0.92);
-  border-right-color: rgb(0 0 0 / 0.85);
+  border-top-color: rgb(255 255 255 / 0.55);
+  border-left-color: rgb(255 255 255 / 0.38);
+  border-bottom-color: rgb(0 0 0 / 0.95);
+  border-right-color: rgb(0 0 0 / 0.88);
+  box-shadow:
+    inset 1px 1px 0 0 rgb(255 255 255 / 0.22),
+    inset -1px -1px 0 0 rgb(0 0 0 / 0.55);
 }
-.border-term-edge.bg-term-panel {
-  border-top-color: rgb(255 255 255 / 0.16);
-  border-left-color: rgb(255 255 255 / 0.1);
-  border-bottom-color: rgb(0 0 0 / 0.6);
-  border-right-color: rgb(0 0 0 / 0.5);
+.border-term-edge.bg-term-input {
+  border-top-color: rgb(0 0 0 / 0.95);
+  border-left-color: rgb(0 0 0 / 0.88);
+  border-bottom-color: rgb(255 255 255 / 0.5);
+  border-right-color: rgb(255 255 255 / 0.3);
+  box-shadow:
+    inset 1px 1px 0 0 rgb(0 0 0 / 0.55),
+    inset -1px -1px 0 0 rgb(255 255 255 / 0.18);
+}
+/* Builder's VarForm and Sensitivity's two-variable override both swap an
+   input from border-term-edge/bg-term-input to border-warn/bg-warn the
+   instant its value has been pushed off its baseline — the one visual cue
+   that a number on screen isn't the original/default one anymore. Neither
+   selector above matches border-warn/bg-warn (different border colour,
+   different fill), so that swap was silently also erasing the sunken-
+   into-the-page "hole" look every other input on this page has — a shocked
+   value read as a flat amber label, not a recessed field you could still
+   tell was an input. Same inset-ring technique, same corners (dark
+   top-left, light bottom-right — recessed, matching bg-term-input's
+   bevel), reusing the exact same black/white ring values rather than a
+   warn-tinted one: a tinted shadow on top of an already-amber fill reads
+   as a second colour, not a shadow, while plain black/white reads as
+   "light source" on any fill underneath it, amber included. */
+.border-warn.bg-warn {
+  box-shadow:
+    inset 1px 1px 0 0 rgb(0 0 0 / 0.55),
+    inset -1px -1px 0 0 rgb(255 255 255 / 0.18);
 }
 
 @layer base {
   html {
-    -webkit-font-smoothing: antialiased;
+    /* `-webkit-font-smoothing: antialiased` removed outright, on request
+       ("remove any hint of modern SaaS look") — grayscale-smoothed,
+       thin-weight text is specifically a 2010s-design-trend convention
+       (the same wave that gave the web Helvetica Neue Light headlines and
+       featherweight icon fonts everywhere); period 2000s Windows software
+       had no such override and just rendered whatever the OS's own text
+       rasteriser produced, which reads chunkier and less considered —
+       closer to the genuine article than a deliberately smoothed face.
+
+       Pushed a step further on a later request ("apply an older aesthetic
+       to the fonts only... slightly pixely and old... don't change the
+       colour, just find a way to make it look older"). Scoped deliberately
+       to rendering, not substance: no font-family swap (tailwind.config's
+       Tahoma-led system stack is already the period-correct typeface, and
+       swapping in an actual bitmap font would break that file's own "system
+       stacks only, no self-hosted webfonts" rule for no real gain), and no
+       colour token touched anywhere — just how the glyphs already being
+       used get drawn.
+         - `-webkit-font-smoothing: none` turns antialiasing off outright
+           (Chrome/Safari) rather than merely switching grayscale↔subpixel —
+           the actual old-OS rasteriser drew hard, slightly jagged pixel
+           edges with no greyscale blending at all, which `antialiased` vs.
+           `subpixel-antialiased` can't reach; this is the step past removing
+           just the smoothing *mode* that gets to true bitmap-era crunch.
+         - `text-rendering: optimizeSpeed` drops kerning/ligature shaping
+           (the opposite of `optimizeLegibility`), the same metrics-level
+           simplification a period GDI text renderer did by default — modern
+           inter-glyph kerning is itself a small "considered design" tell,
+           same category as the smoothing this already removed.
+       Firefox has no equivalent override for the first property (only
+       grayscale/subpixel via -moz-osx-font-smoothing, no "none"), so it
+       keeps its OS default there and still gets the text-rendering change. */
+    -webkit-font-smoothing: none;
+    text-rendering: optimizeSpeed;
     /* Firefox */
     scrollbar-color: rgb(var(--term-line)) rgb(var(--term-bg));
+    /* Explicit, on request ("a way to see the full area when the browser
+       isn't fully covering the window, like a slider at the bottom"). The
+       default `overflow-x: visible` on the root usually lets the browser's
+       own window-level horizontal scrollbar take over once content is
+       wider than the viewport — but `.app-scale` (below) reaches that width
+       via a CSS `transform: scale()`, and a transform's painted size isn't
+       reliably folded into the root's scrollable-overflow calculation the
+       same way a plain wide box's is. When the window is narrower than the
+       app's scaled-up content (e.g. the browser window doesn't cover/match
+       the full monitor), that could silently clip the right edge with no
+       way to reach it. Forcing `auto` here — rather than relying on the
+       implicit default — makes the root unambiguously a scroll container,
+       so the browser's native horizontal scrollbar always appears at the
+       bottom of the window whenever it's actually needed, same as the
+       vertical one already does. */
+    overflow-x: auto;
   }
   body {
     background: rgb(var(--term-bg));
     color: rgb(var(--term-text));
+    /* On request ("a little whiter") after term-muted/term-sub were already
+       pushed to literal 255/255/255 alongside term-text — there's nowhere
+       higher to go in plain RGB, every text tier is already at the ceiling.
+       A soft, tight glow is the other lever: a real CRT's phosphor doesn't
+       stop exactly at a glyph's drawn edge, it blooms a little past it,
+       which is what reads as "brighter than the number alone" on an actual
+       old monitor. `currentColor`, not a hardcoded white, so this adds the
+       same bloom to whatever a given piece of text already is — a white
+       label glows white, a red/green P&L figure glows its own red/green
+       rather than being pulled toward white — consistent with this file's
+       existing rule that colour is reserved for direction/status, never
+       overridden by a blanket effect. Kept deliberately tight (well under
+       1px blur) so it reads as "the text itself is a touch brighter," not
+       a visible halo or blur — bloom, not glow-stick. */
+    text-shadow: 0 0 0.5px currentColor, 0 0 1px currentColor;
   }
   /* Chromium/WebKit default scrollbars are OS light-chrome and clash with a
-     dark theme everywhere but macOS's overlay style. Themed to match the
-     panel palette instead of relying on Firefox's scrollbar-color alone. */
+     dark theme everywhere but macOS's overlay style. Rebuilt a second time
+     ("ultra-legacy... go all in") into an actual Win95 GDI scrollbar rather
+     than a themed version of the modern thin bar this was before: widened
+     to 16px (the real classic width at 96dpi, up from a modern-convention
+     12px), the thumb gets the same hard two-tone bevel as every raised
+     button/panel in this app instead of a plain fill, and — the part a
+     "thin rounded bar" can never have no matter what colours it's given —
+     actual up/down/left/right arrow buttons at each end, bevelled the same
+     way, each drawn with a tiny inline SVG triangle rather than a Unicode
+     glyph (a character glyph is centred by the font's own metrics, not the
+     box, and drifts a px or two depending on the font that happens to be
+     active — an SVG triangle is pixel-placed and can't drift). Chromium-
+     only, same as before; Firefox still gets the plain `scrollbar-color`
+     two-tone set on `html` above, which has no equivalent for buttons or a
+     bevelled thumb. */
   ::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
   }
   ::-webkit-scrollbar-track {
-    background: rgb(var(--term-bg));
+    background: rgb(var(--term-panel));
   }
   ::-webkit-scrollbar-thumb {
-    background-color: rgb(var(--term-line));
-    border: 3px solid rgb(var(--term-bg));
+    background-color: rgb(var(--term-raised));
+    border: 1.25px solid rgb(var(--term-edge));
+    box-shadow:
+      inset 1px 1px 0 0 rgb(255 255 255 / 0.22),
+      inset -1px -1px 0 0 rgb(0 0 0 / 0.55);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(var(--term-edge));
+    background-color: rgb(var(--term-line));
+  }
+  ::-webkit-scrollbar-corner {
+    background: rgb(var(--term-panel));
+  }
+  ::-webkit-scrollbar-button {
+    display: block;
+    background-color: rgb(var(--term-raised));
+    border: 1.25px solid rgb(var(--term-edge));
+    box-shadow:
+      inset 1px 1px 0 0 rgb(255 255 255 / 0.22),
+      inset -1px -1px 0 0 rgb(0 0 0 / 0.55);
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  ::-webkit-scrollbar-button:vertical:start {
+    height: 16px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpolygon points='5,2 9,8 1,8' fill='%23cdced1'/%3E%3C/svg%3E");
+  }
+  ::-webkit-scrollbar-button:vertical:end {
+    height: 16px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpolygon points='1,2 9,2 5,8' fill='%23cdced1'/%3E%3C/svg%3E");
+  }
+  ::-webkit-scrollbar-button:horizontal:start {
+    width: 16px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpolygon points='8,1 8,9 2,5' fill='%23cdced1'/%3E%3C/svg%3E");
+  }
+  ::-webkit-scrollbar-button:horizontal:end {
+    width: 16px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpolygon points='2,1 2,9 8,5' fill='%23cdced1'/%3E%3C/svg%3E");
+  }
+  /* Classic Windows 2000/XP text-selection highlight — the same literal
+     blue as --info (#316AC5), reused here for the one other place period
+     Windows software painted it: selected text, not just selected rows. */
+  ::-moz-selection {
+    background-color: rgb(var(--info));
+    color: #fff;
+  }
+  ::selection {
+    background-color: rgb(var(--info));
+    color: #fff;
   }
   /* Tabular figures so numeric columns align on the decimal. */
   .tnum {
@@ -232,9 +508,17 @@
     -webkit-appearance: none;
     margin: 0;
   }
+  /* Dotted, not solid, on request ("ultra-legacy... go all in") — a solid
+     outline in the app's own accent colour is a modern a11y-focus-ring
+     convention (every current browser's own default looks like this,
+     just in a different blue). The actual Win32 focus cue on a button or
+     list row was a dotted rectangle drawn in the control's own text
+     colour, not the system highlight blue — keyboard focus and mouse
+     selection were two different signals with two different looks, which
+     a shared --info outline collapses into one. */
   :focus-visible {
-    outline: 1px solid rgb(var(--info));
-    outline-offset: 0;
+    outline: 1px dotted rgb(var(--term-text));
+    outline-offset: 1px;
   }
 }
 
@@ -270,14 +554,46 @@
    width. Below useFillScale's DESKTOP_MIN_WIDTH, scale is pinned to exactly
    1, so phones/tablets never engage this at all. The 1.15 fallback below
    only matters for the one frame before useFillScale's effect runs; it is
-   not a ceiling or a floor. A short transition smooths that one jump, and
-   any later rescale from an actual window resize, without lagging behind a
-   window drag. */
+   not a ceiling or a floor. The eased transition that used to smooth that
+   jump (and any later rescale from a window resize) is gone, on request
+   ("remove any hint of modern SaaS look") — an animated, easing-curved
+   resize is itself a small piece of 2010s micro-interaction polish; period
+   software just snapped straight to the new size with no in-between
+   frames, so the rescale now does the same. */
 .app-scale {
   width: calc(100% / var(--app-scale, 1.15));
   transform: scale(var(--app-scale, 1.15));
   transform-origin: top left;
-  transition: transform 150ms ease-out, width 150ms ease-out;
+}
+
+/* Pixelated, NOT blurry — on a direct follow-up request walking back the
+   blur specifically ("don't make it blurry, just... that 2000s and 2010s
+   slightly pixelated look"). The earlier bitmap-stretch blur (researched
+   against what actually makes Sierra Chart look soft) is gone outright —
+   no `filter` on `.app-scale` anymore, so text and edges render at their
+   normal, fully crisp resolution again. What's left is `.pixel-grid`
+   below, on its own: a fine, EQUAL-pitch grid (not the old scanline
+   overlay's horizontal-dominant lines — a scanline reads as "CRT tube,"
+   a crossed equal grid reads as "visible square pixels," the low-res/
+   chunky-icon texture period 2000s/2010s desktop software actually had,
+   independent of any softness. A plain `<div>` sibling in layout.tsx, not
+   a child of `.app-scale` — keeps this on top of everything (TopNav,
+   every page) without being tied to that element's own styling. A first
+   pass at 2px pitch / 0.10 alpha each way moire'd badly once actually
+   rendered at a real device pixel ratio — the two 1px-on-2px gradients'
+   overlaps stacked into a loud, almost broken-looking checkerboard, not a
+   subtle texture. 3px pitch at a lower 0.07 alpha each way reads as a
+   calmer, genuinely textural grid at normal viewing distance while still
+   clearly visible up close. */
+.pixel-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.07) 0px, rgb(0 0 0 / 0.07) 1px, transparent 1px, transparent 3px),
+    repeating-linear-gradient(to right, rgb(0 0 0 / 0.07) 0px, rgb(0 0 0 / 0.07) 1px, transparent 1px, transparent 3px);
+  background-size: 3px 3px;
 }
 
 /* Change-flash: a brief background tint on a cell whose value just moved.
@@ -371,5 +687,14 @@
     background: white;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* `.pixel-grid` (above) is a screen-only affectation — a printed page
+     has no "visible square pixels" texture to imitate, and it would just
+     make a hard copy of a dense numeric table objectively harder to read
+     for no reason. Already dropped via its own `no-print` class
+     (layout.tsx); this is belt-and-suspenders in case that class is ever
+     removed without this rule being noticed. */
+  .pixel-grid {
+    display: none;
   }
 }

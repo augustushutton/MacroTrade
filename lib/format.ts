@@ -137,6 +137,22 @@ export function heatFg(v: number, max: number): string {
 }
 
 /**
+ * UNUSED — kept on disk rather than deleted (see signFillGradient's own
+ * comment below for the full story). Built the same gradient treatment for
+ * a heatmap cell instead of a watchlist row; SensitivityTab went back to
+ * plain heatBg once "solid color, varying brightness" was picked over the
+ * gradient look for Trading/Execution, and stayed consistent with that
+ * choice here too. */
+export function heatGradient(v: number, max: number): string {
+  if (!Number.isFinite(v) || max <= 0) return "transparent";
+  const aBright = Math.min(0.95, (Math.abs(v) / max) * 0.95);
+  const aDark = Math.min(0.85, (Math.abs(v) / max) * 0.85);
+  const bright = v >= 0 ? "--up-bright" : "--down-bright";
+  const dark = v >= 0 ? "--up" : "--down";
+  return `linear-gradient(to right, rgb(var(${bright}) / ${aBright.toFixed(3)}), rgb(var(${dark}) / ${aDark.toFixed(3)}))`;
+}
+
+/**
  * Solid-fill "watchlist" cell treatment — Interactive Brokers' own watchlist
  * colours its CHANGE column as a full block of solid green or red, not
  * coloured text on the row's own background. On request ("change the
@@ -171,5 +187,31 @@ export function signFillFg(v: number, max: number, dead = 0.005): string {
   const m = Number.isFinite(max) && max > 0 ? max : Math.abs(v) || 1;
   const a = Math.min(0.85, Math.max(0.18, (Math.abs(v) / m) * 0.85));
   return a > 0.5 ? "rgb(255 255 255)" : "rgb(var(--term-text))";
+}
+
+/**
+ * UNUSED — kept on disk rather than deleted, same reversibility convention
+ * as lib/montecarlo.ts elsewhere in this codebase. Built on request ("apply
+ * the bright and dark color gradient for intensity on the trading and
+ * execution stuff for the estimated p&l"): a two-stop gradient between
+ * --up-bright/--down-bright at the leading edge and the darker --up/--down
+ * at the trailing edge, both stops scaled by magnitude. A follow-up request
+ * walked it back — asked to see it applied, the per-cell left-right split
+ * actually made row-to-row comparison HARDER to read at a glance than
+ * signFillBg's plain single-alpha block (every cell's own internal
+ * variation competed with the between-row variation that's the actual
+ * point), and "solid color, varying brightness" was picked explicitly over
+ * keeping this gradient. TradingTab/ExecutionTab/SensitivityTab all went
+ * back to signFillBg/heatBg (below).
+ */
+export function signFillGradient(v: number, max: number, dead = 0.005): string {
+  if (!Number.isFinite(v) || Math.abs(v) < dead) return "transparent";
+  const m = Number.isFinite(max) && max > 0 ? max : Math.abs(v) || 1;
+  const t = Math.min(1, Math.abs(v) / m);
+  const aDark = Math.min(0.85, Math.max(0.18, t * 0.85));
+  const aBright = Math.min(0.95, Math.max(0.32, t * 0.95));
+  const bright = v > 0 ? "--up-bright" : "--down-bright";
+  const dark = v > 0 ? "--up" : "--down";
+  return `linear-gradient(to right, rgb(var(${bright}) / ${aBright.toFixed(3)}), rgb(var(${dark}) / ${aDark.toFixed(3)}))`;
 }
 

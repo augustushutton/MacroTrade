@@ -3,7 +3,7 @@
 import React from "react";
 import { runScenario, type ScenarioInput } from "@/lib/engine";
 import { baselineState, VAR_GROUPS, VARIABLES, VAR_BY_ID, type VarState } from "@/lib/vars";
-import { presetState, type Preset } from "@/lib/scenarios";
+import { PRESETS, presetState, type Preset } from "@/lib/scenarios";
 import type { Horizon, PathShape } from "@/lib/paths";
 import { DEFAULT_NOTIONAL } from "@/lib/portfolios";
 import { toDelta, fromDelta, loadSession, saveSession, type ScenarioSnapshot } from "@/lib/storage";
@@ -82,14 +82,29 @@ interface ScenarioContextValue {
 
 const ScenarioContext = React.createContext<ScenarioContextValue | null>(null);
 
+// A first-time visitor with no saved session (loadSession() below finds
+// nothing) used to land on a flat baseline: every one of the 42 inputs at
+// 0.0%, nothing to look at until they picked a preset themselves. For
+// someone who found this cold — a recruiter clicking a resume link, say —
+// that's a blank spreadsheet, not a demo. Stagflation is the one preset
+// that lights up every tab at once (P&L shows a real drawdown, duration
+// visibly fails to hedge, Derivation/Sensitivity have real terms to show)
+// without needing Trading/Execution fills to look alive, so it's the
+// default FIRST IMPRESSION, not a claim that it's the "normal" scenario —
+// a genuine first-time user still sees it and can reset to flat baseline
+// (Builder's Reset) same as always. A returning visitor's own saved
+// session (localStorage, see the restore effect below) always wins over
+// this and is unaffected.
+const DEFAULT_PRESET: Preset = PRESETS.find((p) => p.id === "stagflation")!;
+
 export function ScenarioProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<VarState>(baselineState);
-  const [path, setPath] = React.useState<PathShape>("immediate");
-  const [horizon, setHorizon] = React.useState<Horizon>(12);
+  const [state, setState] = React.useState<VarState>(() => presetState(DEFAULT_PRESET));
+  const [path, setPath] = React.useState<PathShape>(DEFAULT_PRESET.path);
+  const [horizon, setHorizon] = React.useState<Horizon>(DEFAULT_PRESET.horizon);
   const [steps, setSteps] = React.useState<number>(8);
   const [notional, setNotional] = React.useState<number>(DEFAULT_NOTIONAL);
   const [portfolioId, setPortfolioId] = React.useState<string>("p6040");
-  const [presetId, setPresetId] = React.useState<string | null>(null);
+  const [presetId, setPresetId] = React.useState<string | null>(DEFAULT_PRESET.id);
   const [customScenarioId, setCustomScenarioId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState<string>("");
   const [open, setOpenState] = React.useState<Record<string, boolean>>(() =>

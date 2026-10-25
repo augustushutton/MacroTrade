@@ -2,8 +2,9 @@
 
 import React from "react";
 import { loadAll, remove, clearAll, onExecutionsChanged, type ExecutionOrder } from "@/lib/executions";
-import { fmtNum, fmtPct, fmtUsd, fmtUsdPlain, signColor, signFillBg, signFillFg } from "@/lib/format";
+import { fmtNum, fmtPct, fmtUsd, fmtUsdPlain, heatBg, heatFg, signColor } from "@/lib/format";
 import { Panel, Td, Th } from "./ui";
+import { ScrollHint } from "./ScrollHint";
 
 // Execution — the results side of the Trading / Execution split. Trading
 // only ever proposes and prices an order ticket; every row shown here is a
@@ -80,17 +81,23 @@ function ExecutionSummary({ orders }: { orders: ExecutionOrder[] }) {
   // Scaled against the biggest single order's own net P&L — the combined
   // figure in this summary row then reads as strong/faint exactly the way
   // it would sit among the individual orders that made it up, rather than
-  // against an arbitrary constant. See lib/format.ts's signFillBg comment.
+  // against an arbitrary constant. See lib/format.ts's heatBg comment.
   const netPnlMax = Math.max(...orders.map((o) => Math.abs(o.netPnl)), Math.abs(netPnl), 1);
 
   return (
     <Panel className="min-w-0" title="Execution Summary">
-      {/* overflow-x-auto: seven columns of mostly non-wrapping $/% figures —
-          same "scroll in place instead of squeezing numbers into collision"
-          treatment PnlTab's own wide tables use (see e.g. its Asset Detail
-          Bonds table). */}
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed border-collapse text-[11px]">
+      {/* overflow-x-auto + an explicit min-width (added alongside the same
+          fix on PnlTab's Asset Detail Bonds table and PortfolioSummary,
+          SensitivityTab and NarrativeTab's wide tables — see each one's own
+          comment): seven columns of mostly non-wrapping $/% figures were
+          scrolling in place already, but with no min-width table-fixed just
+          divided the viewport by 7 at phone widths instead, confirmed via
+          screenshot to mash figures together illegibly rather than ever
+          triggering the scroll this wrapper was meant to provide. ScrollHint
+          (see that file) adds the visual cue that there's more to scroll
+          to. */}
+      <ScrollHint>
+        <table className="w-full min-w-[640px] table-fixed border-collapse text-[11px]">
           <thead>
             <tr className="bg-term-raised">
               <Th align="right" className="w-[12%]">
@@ -137,7 +144,7 @@ function ExecutionSummary({ orders }: { orders: ExecutionOrder[] }) {
                 align="right"
                 mono
                 className="font-medium"
-                style={{ backgroundColor: signFillBg(netPnl, netPnlMax), color: signFillFg(netPnl, netPnlMax) }}
+                style={{ background: heatBg(netPnl, netPnlMax), color: heatFg(netPnl, netPnlMax) }}
               >
                 {fmtUsd(netPnl)}
               </Td>
@@ -147,7 +154,7 @@ function ExecutionSummary({ orders }: { orders: ExecutionOrder[] }) {
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollHint>
     </Panel>
   );
 }
@@ -164,7 +171,7 @@ function OrderBook({
   const rows = React.useMemo(() => orders.flatMap(orderToRows), [orders]);
   // Scaled against the biggest |net P&L| among every row actually in this
   // blotter right now (legs and "Net" summary rows alike) — see
-  // lib/format.ts's signFillBg comment for why it's relative to the table,
+  // lib/format.ts's heatBg comment for why it's relative to the table,
   // not a fixed constant.
   const netPnlMax = Math.max(...rows.map((row) => Math.abs(row.netPnl)), 1);
 
@@ -174,7 +181,7 @@ function OrderBook({
       title="Order Book"
       right={
         orders.length > 0 ? (
-          <button type="button" onClick={onClearAll} className="text-th text-term-muted hover:text-term-text">
+          <button type="button" onClick={onClearAll} className="text-th uppercase text-term-muted hover:text-term-text">
             Clear All
           </button>
         ) : null
@@ -182,7 +189,7 @@ function OrderBook({
     >
       {rows.length === 0 ? (
         <div className="p-2 text-[11px] text-term-muted">
-          No orders filled yet — place one from the Trading tab (each desk's Place button sends a priced fill here).
+          No orders filled yet.
         </div>
       ) : (
         // overflow-x-auto + an explicit min-width on the table itself (not
@@ -193,8 +200,10 @@ function OrderBook({
         // scrolls in its own box instead of cramming unbreakable tokens into
         // collision — the same "scroll in place" intent every other
         // overflow-x-auto wrapper in this app documents (TopNav,
-        // NarrativeTab, PnlTab's Asset Detail).
-        <div className="overflow-x-auto">
+        // NarrativeTab, PnlTab's Asset Detail). ScrollHint (see that file)
+        // adds the visual edge cue so that scroll is actually discoverable
+        // on a phone instead of silent.
+        <ScrollHint>
           <table className="w-full min-w-[760px] table-fixed border-collapse text-[11px]">
             <thead>
               <tr className="bg-term-raised">
@@ -244,13 +253,13 @@ function OrderBook({
                   <Td align="right" mono className="text-term-muted">
                     {fmtUsdPlain(r.notional)}
                   </Td>
-                  <Td align="right" mono className={r.isSummary ? "text-term-edge" : signColor(r.arrivalPct)}>
+                  <Td align="right" mono className={r.isSummary ? "text-term-sub" : signColor(r.arrivalPct)}>
                     {r.isSummary ? "—" : fmtPct(r.arrivalPct)}
                   </Td>
-                  <Td align="right" mono className={r.isSummary ? "text-term-edge" : signColor(r.fillPct)}>
+                  <Td align="right" mono className={r.isSummary ? "text-term-sub" : signColor(r.fillPct)}>
                     {r.isSummary ? "—" : fmtPct(r.fillPct)}
                   </Td>
-                  <Td align="right" mono className={r.isSummary ? "text-term-edge" : "text-term-muted"}>
+                  <Td align="right" mono className={r.isSummary ? "text-term-sub" : "text-term-muted"}>
                     {r.isSummary ? "—" : fmtSlip(r.slippageBp)}
                   </Td>
                   <Td align="right" mono className="text-term-muted">
@@ -260,7 +269,7 @@ function OrderBook({
                     align="right"
                     mono
                     className="font-medium"
-                    style={{ backgroundColor: signFillBg(r.netPnl, netPnlMax), color: signFillFg(r.netPnl, netPnlMax) }}
+                    style={{ background: heatBg(r.netPnl, netPnlMax), color: heatFg(r.netPnl, netPnlMax) }}
                   >
                     {fmtUsd(r.netPnl)}
                   </Td>
@@ -281,7 +290,7 @@ function OrderBook({
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollHint>
       )}
     </Panel>
   );

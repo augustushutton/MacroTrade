@@ -27,9 +27,12 @@ export const PRESET_DEFAULT_OPEN: Record<string, boolean> = {
 /** Negative-margin overlap so a card's border coincides with its neighbour's
  *  instead of doubling into a 2px line — identical trick to VarForm's
  *  overlapClass, duplicated rather than shared since the two components'
- *  column counts can diverge independently over time. */
-function overlapClass(scope: "sm" | "md" | "xl", i: number): string {
-  const cols = scope === "xl" ? 3 : scope === "md" ? 2 : 1;
+ *  column counts can diverge independently over time. Always 3 columns (the
+ *  grid below is a fixed `grid-cols-3`, never reflows) — this used to branch
+ *  on a "sm" | "md" | "xl" scope for a since-removed responsive layout;
+ *  collapsed to the one case still reachable, same cleanup as VarForm's. */
+function overlapClass(i: number): string {
+  const cols = 3;
   const cls: string[] = [];
   if (i % cols !== 0) cls.push("-ml-px");
   if (i >= cols) cls.push("-mt-px");
@@ -47,11 +50,11 @@ export default function PresetBar({
   expanded?: Record<string, boolean>;
   setExpanded?: (group: string, v: boolean) => void;
 }) {
-  const card = (scope: "sm" | "md" | "xl") => (group: string, i: number) => {
+  const card = (group: string, i: number) => {
     const presets = PRESETS.filter((p) => p.group === group);
 
     return (
-      <div key={group} className={`border border-term-edge bg-term-panel ${overlapClass(scope, i)}`}>
+      <div key={group} className={`border border-term-edge bg-term-panel ${overlapClass(i)}`}>
         {/* Per-group count badge removed by request — the group's own rows
             are listed right below the header, so the count was restating
             something already directly visible rather than adding
@@ -82,7 +85,7 @@ export default function PresetBar({
                       colour rather than introducing a new one. */}
                   <span
                     className={`shrink-0 font-mono ${
-                      isSel ? "text-term-panel" : "text-term-edge group-hover:text-term-text"
+                      isSel ? "text-term-panel" : "text-term-sub group-hover:text-term-text"
                     }`}
                   >
                     &rsaquo;
@@ -97,16 +100,18 @@ export default function PresetBar({
     );
   };
 
-  // Same fixed 3/2/1-column mosaic as VarForm just below it on the page —
-  // one visual system for "a row of independent bordered cards," not two
+  // Same fixed 3-column mosaic as VarForm just below it on the page — one
+  // visual system for "a row of independent bordered cards," not two
   // slightly different ones. items-start keeps every card sized to its own
   // content (Policy's 9 presets vs. Inflation's 3) instead of every card in
   // a row stretching to match its tallest neighbour.
-  return (
-    <>
-      <div className="flex flex-col gap-0 md:hidden">{ALL_GROUPS.map(card("sm"))}</div>
-      <div className="hidden grid-cols-2 items-start gap-0 md:grid xl:hidden">{ALL_GROUPS.map(card("md"))}</div>
-      <div className="hidden grid-cols-3 items-start gap-0 xl:grid">{ALL_GROUPS.map(card("xl"))}</div>
-    </>
-  );
+  //
+  // Always 3 columns now, regardless of actual window width — this used to
+  // drop to 2 columns and then a single stacked column as the viewport
+  // narrowed (the exact collapse a resized desktop window or a phone would
+  // trigger). On request, the site no longer reflows this layout for a
+  // narrow viewport at all: the whole page pans as one unit instead, via
+  // `<main>`'s `min-w-[1280px]` (providers.tsx) plus `html`'s existing
+  // `overflow-x: auto` (globals.css) — not a local scroll island here.
+  return <div className="grid grid-cols-3 items-start gap-0">{ALL_GROUPS.map(card)}</div>;
 }

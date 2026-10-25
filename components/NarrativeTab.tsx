@@ -5,6 +5,7 @@ import type { EngineResult, Term } from "@/lib/engine";
 import { ASSETS, type Asset } from "@/lib/assets";
 import { fmtNum, fmtPct, fmtSigned, signColor } from "@/lib/format";
 import { Btn, Cap, GroupHeader, Panel, Td, Th, Tooltip } from "./ui";
+import { ScrollHint } from "./ScrollHint";
 
 // Derivation table: beta × shock × multiplier = value, grouped by asset class.
 
@@ -49,7 +50,7 @@ function TermRows({ terms, unit }: { terms: Term[]; unit: string }) {
       {terms.map((t, i) => {
         const adjusted = Math.abs(t.mult - 1) > 0.005;
         return (
-          <tr key={`${t.driver}-${i}`} className={i % 2 === 1 ? "bg-term-zebra" : ""}>
+          <tr key={`${t.driver}-${i}`} className={`hover:bg-term-line/25 ${i % 2 === 1 ? "bg-term-zebra" : ""}`}>
             <Td className="w-[45%] pl-6 text-term-sub">{expandAbbrev(t.label)}</Td>
             <Td align="right" mono className="w-[14%] text-term-muted">
               {fmtSigned(t.shock, 2)}
@@ -57,7 +58,7 @@ function TermRows({ terms, unit }: { terms: Term[]; unit: string }) {
             <Td align="right" mono className="w-[14%] text-term-muted">
               {fmtSigned(t.beta, 3)}
             </Td>
-            <Td align="right" mono className={`w-[11%] ${adjusted ? "text-term-text" : "text-term-edge"}`}>
+            <Td align="right" mono className={`w-[11%] ${adjusted ? "text-term-text" : "text-term-sub"}`}>
               <Tooltip content={t.reasons.length > 0 ? t.reasons.join(" · ") : "No regime, timing, or correlation adjustment"}>
                 <span>{fmtNum(t.mult, 3)}</span>
               </Tooltip>
@@ -205,14 +206,18 @@ export default function NarrativeTab({
         {/* overflow-x-auto: six group tabs (Indices/Sectors/FX/Corporate
             Bonds/Government Bonds/Commodities) don't all fit on a phone
             width — same "scroll in place instead of forcing the page wider"
-            treatment as TopNav and the dense data tables. */}
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-term-edge px-1.5 py-1">
+            treatment as TopNav and the dense data tables. ScrollHint (see
+            that file) added by request ("resize correctly on every
+            device") so the overflow — confirmed on a phone-width probe —
+            is actually visible instead of a silent clip, same bug as
+            TopNav's own tab strip. */}
+        <ScrollHint className="flex items-center gap-1 border-b border-term-edge px-1.5 py-1">
           {GROUP_TABS.map((t) => (
             <Btn key={t.id} active={activeGroupTab === t.id} onClick={() => setActiveGroupTab(t.id)}>
               {t.label}
             </Btn>
           ))}
-        </div>
+        </ScrollHint>
         {visibleGroups.length === 0 ? (
           // On a fresh/default scenario (or any scenario that hasn't moved
           // anything in THIS instrument class specifically) this page has
@@ -242,8 +247,14 @@ export default function NarrativeTab({
                   below — table-fixed with the same percentage widths as
                   every card's own table, so the columns line up exactly even
                   though each card renders an independent <table>. */}
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed border-collapse text-[11px]">
+              {/* min-w added by request ("resize correctly on every
+                  device") — same fix as the per-asset cards' own tables
+                  below (which must match this exact value, or the
+                  per-card ScrollHint and this ruler's would reach their
+                  scroll limits at different widths and the columns would
+                  drift out of alignment the comment above promises). */}
+              <ScrollHint>
+                <table className="w-full min-w-[480px] table-fixed border-collapse text-[11px]">
                   <thead>
                     <tr className="bg-term-raised">
                       <Th className="w-[45%]">Asset</Th>
@@ -262,7 +273,7 @@ export default function NarrativeTab({
                     </tr>
                   </thead>
                 </table>
-              </div>
+              </ScrollHint>
               {/* One bordered card per asset, floating on a visible bg-term-bg
                   gutter (py-1.5 + gap-1.5) rather than tiled edge-to-edge —
                   border-term-edge and border-term-line resolve to the exact
@@ -280,14 +291,14 @@ export default function NarrativeTab({
                   nothing but a colour change to mark the seam. Horizontal
                   padding stays 0 so each card's table columns still line up
                   exactly under the column ruler above. */}
-              <div className="overflow-x-auto bg-term-bg py-1.5">
+              <ScrollHint className="bg-term-bg py-1.5">
                 <div className="flex flex-col gap-1.5">
                 {assets.map((a) => {
                   const ar = r.assets[a.id];
                   if (!ar) return null;
                   return (
                     <div key={a.id} className="border border-term-edge bg-term-panel">
-                      <table className="w-full table-fixed border-collapse text-[11px]">
+                      <table className="w-full min-w-[480px] table-fixed border-collapse text-[11px]">
                         <tbody>
                           <tr
                             id={`asset-row-${a.id}`}
@@ -319,16 +330,33 @@ export default function NarrativeTab({
                             // cue for "the thing that matters most here" —
                             // that bevel, not a hairline rule, is what marks
                             // this row off from the channel/term rows below.
-                            className={`sticky top-0 z-[1] bg-term-raised ${justFocused === a.id ? "bg-info/10" : ""}`}
+                            //
+                            // hover:bg-term-line on this row, the channel
+                            // rows below it, and TermRows' own term rows
+                            // (above) — on request ("lightly highlights the
+                            // row so it's easier to see what you're looking
+                            // at") — started at the same /10 wash PnlTab's
+                            // rows already use for the same reason (see e.g.
+                            // AssetRow there), then raised to /25 on a
+                            // follow-up ("make it a bit brighter so it
+                            // doesn't blend in with the lighter row") — this
+                            // table alternates between two very close dark
+                            // shades (bg-term-panel/bg-term-zebra), close
+                            // enough that /10 read as basically invisible
+                            // against the lighter of the two. PnlTab's own
+                            // rows alternate against a visibly lighter
+                            // bg-term-raised, so /10 still reads fine there
+                            // and was left as-is.
+                            className={`sticky top-0 z-[1] bg-term-raised hover:bg-term-line/25 ${justFocused === a.id ? "bg-info/10" : ""}`}
                           >
                             <Td className="w-[45%] font-medium text-term-text">{expandAbbrev(a.label)}</Td>
-                            <Td align="right" className="w-[14%] text-term-edge">
+                            <Td align="right" className="w-[14%] text-term-sub">
                               &mdash;
                             </Td>
-                            <Td align="right" className="w-[14%] text-term-edge">
+                            <Td align="right" className="w-[14%] text-term-sub">
                               &mdash;
                             </Td>
-                            <Td align="right" className="w-[11%] text-term-edge">
+                            <Td align="right" className="w-[11%] text-term-sub">
                               &mdash;
                             </Td>
                             <Td align="right" mono className={`w-[16%] font-medium ${signColor(ar.pricePct)}`}>
@@ -346,15 +374,15 @@ export default function NarrativeTab({
                                   point. Shading alternates per channel
                                   (rather than per term row) so a channel's
                                   own rows read as one banded block. */}
-                              <tr className={ci % 2 === 1 ? "bg-term-zebra" : "bg-term-panel"}>
+                              <tr className={`hover:bg-term-line/25 ${ci % 2 === 1 ? "bg-term-zebra" : "bg-term-panel"}`}>
                                 <Td className="w-[45%] pl-4 text-term-sub">{c.label}</Td>
-                                <Td align="right" className="w-[14%] text-term-edge">
+                                <Td align="right" className="w-[14%] text-term-sub">
                                   &mdash;
                                 </Td>
-                                <Td align="right" className="w-[14%] text-term-edge">
+                                <Td align="right" className="w-[14%] text-term-sub">
                                   &mdash;
                                 </Td>
-                                <Td align="right" className="w-[11%] text-term-edge">
+                                <Td align="right" className="w-[11%] text-term-sub">
                                   &mdash;
                                 </Td>
                                 <Td align="right" mono className={`w-[16%] font-medium ${signColor(c.value, 0.005)}`}>
@@ -375,7 +403,7 @@ export default function NarrativeTab({
                   );
                 })}
                 </div>
-              </div>
+              </ScrollHint>
             </div>
           ))}
         </div>

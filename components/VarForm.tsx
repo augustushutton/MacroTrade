@@ -39,13 +39,9 @@ function VarRow({
   id: string;
   state: VarState;
   onChange: (id: string, v: number) => void;
-  /** Element id for the label/input pair. VarForm renders three copies of
-   *  every row — one per responsive breakpoint, only one visible at a time
-   *  (see the grid layouts at the bottom of this file) — so `v-${id}` alone
-   *  would collide three times over and produce invalid HTML (duplicate ids
-   *  break `htmlFor` association and any `getElementById`/`#id` lookup,
-   *  which resolves to only the first match). Each copy passes its own
-   *  breakpoint-scoped id. */
+  /** Element id for the label/input pair, scoped per group/variable by the
+   *  caller (`v-${id}-xl`, from GroupCard below) so `getElementById`/`#id`
+   *  lookups and `htmlFor` association never collide with another row's. */
   domId: string;
   /** Alternating row shade, same convention as every table elsewhere in the
    *  app (Td's even:bg-term-zebra) — a long, uniform list of identical rows
@@ -140,7 +136,7 @@ function VarRow({
       </div>
       <div
         className={`flex items-center justify-end px-1.5 py-dense font-mono text-[11px] font-medium leading-[13px] tnum ${
-          moved ? signColor(d, 10 ** -v.dp / 2) : "text-term-line"
+          moved ? signColor(d, 10 ** -v.dp / 2) : "text-term-sub"
         }`}
       >
         {fmtVarDelta(v, d)}
@@ -168,9 +164,10 @@ function GroupCard({
   state: VarState;
   onChange: (id: string, v: number) => void;
   onResetGroup: (group: string) => void;
-  /** Breakpoint tier this copy renders under ("sm" | "md" | "xl") — folded
-   *  into each row's element id so the three responsive copies never emit
-   *  the same id twice. See VarRow's `domId` doc comment. */
+  /** Folded into each row's element id (see VarRow's `domId` doc comment).
+   *  Always "xl" now — the grid below stopped reflowing per breakpoint, but
+   *  the id-scoping plumbing was left in place rather than ripped out for a
+   *  single caller. */
   scope: string;
   /** Negative-margin overlap (see overlapClass below) so this card's border
    *  coincides with its neighbour's instead of doubling up — true edge-to-
@@ -198,7 +195,7 @@ function GroupCard({
               <button
                 type="button"
                 onClick={() => onResetGroup(x.id)}
-                className="text-th text-term-muted hover:text-down"
+                className="text-th uppercase text-term-muted hover:text-down"
               >
                 {/* Small reset glyph ahead of the label — real function,
                     dressed as the icon-plus-label toolbar buttons a dense
@@ -229,9 +226,12 @@ function GroupCard({
  *  line — the same `-ml-px` trick TopNav's segmented buttons already use,
  *  extended here to the second axis (`-mt-px`) since this grid wraps to a
  *  new row. Every column but the first pulls 1px left; every row but the
- *  first pulls 1px up — both at once for an interior cell. */
-function overlapClass(scope: string, i: number): string {
-  const cols = scope === "xl" ? 3 : scope === "md" ? 2 : 1;
+ *  first pulls 1px up — both at once for an interior cell. Always 3 columns
+ *  (the grid below is a fixed `grid-cols-3`, never reflows) — this used to
+ *  branch on a "sm" | "md" | "xl" scope for a since-removed responsive
+ *  layout; collapsed to the one case still reachable. */
+function overlapClass(i: number): string {
+  const cols = 3;
   const cls: string[] = [];
   if (i % cols !== 0) cls.push("-ml-px");
   if (i >= cols) cls.push("-mt-px");
@@ -276,7 +276,7 @@ export default function VarForm({
       state={state}
       onChange={onChange}
       onResetGroup={onResetGroup}
-      className={overlapClass(scope, i)}
+      className={overlapClass(i)}
     />
   );
 
@@ -286,14 +286,15 @@ export default function VarForm({
   // used to have, source order alone now reads as an even grid without
   // needing to reflow cards between columns. VAR_GROUPS' own order IS the
   // grid order: row 1 = Monetary / Inflation / Growth, row 2 = Financial /
-  // FX / Fiscal, a fixed 3-column x 2-row layout at the widest tier
-  // (xl:grid-cols-3), 2 columns x 3 rows at the mid tier, one column on
-  // mobile.
-  return (
-    <>
-      <div className="flex flex-col gap-0 md:hidden">{groups.map(card("sm"))}</div>
-      <div className="hidden grid-cols-2 items-start gap-0 md:grid xl:hidden">{groups.map(card("md"))}</div>
-      <div className="hidden grid-cols-3 items-start gap-0 xl:grid">{groups.map(card("xl"))}</div>
-    </>
-  );
+  // FX / Fiscal, a fixed 3-column x 2-row layout — ALWAYS, regardless of
+  // the actual window width. This used to drop to a 2-column mid tier and
+  // then a single mobile column as the viewport narrowed; on request, the
+  // site no longer reflows its layout for a narrow viewport at all (phone
+  // or a shrunk desktop window alike) — the window pans/scrolls as ONE
+  // page instead, via `<main>`'s own `min-w-[1280px]` (providers.tsx) and
+  // `html`'s existing `overflow-x: auto` (globals.css), rather than this
+  // grid scrolling as its own separate island. No local min-w/overflow
+  // needed here as a result — at main's 1280px floor there's always ~400px
+  // per column here, comfortably above what a VarRow needs.
+  return <div className="grid grid-cols-3 items-start gap-0">{groups.map(card("xl"))}</div>;
 }

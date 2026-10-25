@@ -65,10 +65,19 @@ const config: Config = {
         sub: "0.85em",
       },
       fontFamily: {
-        // System stacks only — no self-hosted webfonts. Segoe UI leads on
-        // Windows (the common enterprise-desktop baseline); the platform
-        // defaults cover macOS/Linux.
+        // System stacks only — no self-hosted webfonts. Tahoma leads
+        // because it's the real Win95/98/2000-era UI font — the one every
+        // IB TWS Classic / Sierra Chart screenshot from that period
+        // actually renders in. "MS Sans Serif" stays listed for the rare
+        // machine that still has it, Geneva for the closest a Mac gets to
+        // that same small-x-height feel, Segoe UI demoted further down
+        // (didn't exist until Windows Vista, a full decade past the
+        // software referenced here) as a last-resort modern fallback
+        // rather than removed outright.
         sans: [
+          "Tahoma",
+          "MS Sans Serif",
+          "Geneva",
           "Segoe UI",
           "-apple-system",
           "BlinkMacSystemFont",
