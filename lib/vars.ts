@@ -48,7 +48,7 @@ export interface VarGroup {
 export const VAR_GROUPS: VarGroup[] = [
   { id: "monetary", label: "Monetary Policy", defaultOpen: true },
   { id: "inflation", label: "Inflation & Expectations", defaultOpen: true },
-  { id: "growth", label: "Growth & Labour", defaultOpen: true },
+  { id: "growth", label: "Growth & Labor", defaultOpen: true },
   { id: "financial", label: "Financial Conditions", defaultOpen: true },
   { id: "fx", label: "FX & External", defaultOpen: true },
   { id: "fiscal", label: "Fiscal & Structural", defaultOpen: true },
@@ -101,11 +101,37 @@ export const VARIABLES: Variable[] = [
   { id: "be5y", label: "5y Breakeven", group: "inflation", unit: "%", base: 2.35, min: 0, max: 6, step: 0.05, norm: 0.25, dp: 2 },
   { id: "be10y", label: "10y Breakeven", group: "inflation", unit: "%", base: 2.3, min: 0, max: 6, step: 0.05, norm: 0.25, dp: 2 },
   { id: "wageGrowth", label: "Wage Growth YoY", group: "inflation", unit: "%", base: 4.0, min: 0, max: 12, step: 0.1, norm: 1.0, dp: 2 },
-  // 10y Real Rate moved in from Financial Conditions: the nominal 10y
-  // yield is real rate plus breakeven inflation BY CONSTRUCTION (see the
-  // THEMES comment further down), so it belongs next to the two breakevens
-  // above as the other half of that identity, not filed as a market-pricing
+  // 10y Real Rate moved in from Financial Conditions: in the real market,
+  // nominal 10y = real 10y + 10y breakeven BY DEFINITION (that's how a
+  // breakeven is computed — the TIPS/nominal spread), so this belongs next
+  // to the two breakevens above conceptually, not filed as a market-pricing
   // variable somewhere else.
+  //
+  // That identity is NOT, however, enforced as a hard constraint on this
+  // model's own UST10Y output (an earlier version of this comment claimed
+  // it was — "BY CONSTRUCTION" — which overstated what the code actually
+  // does; corrected here). UST10Y is its own ~20-driver term-structure
+  // regression (RATE_BETAS.UST10Y in lib/elasticities.ts — see that table's
+  // own header on why every tenor gets its full driver set rather than one
+  // "duration" line), of which realRate10y and be10y are two inputs among
+  // many, each carrying a real but partial beta rather than a combined
+  // beta of 100 that would reproduce the identity bp-for-bp. Pinning
+  // UST10Y to literally realRate10y + be10y was tried and rejected: several
+  // presets (recession_pmi, recession_labour, liquidity_squeeze,
+  // bull_steepen) set realRate10y alone, as ONE input in a broader Fed-cut/
+  // growth-collapse narrative that also moves fedFunds, forwardGuidance,
+  // gdpGrowth, pmiMfg and more — a hard pin would have discarded that
+  // richer, already-validated response (including the deficit/balance-
+  // sheet/QT term-premium channel and the productivity r* channel) in
+  // favour of a single two-variable sum every time a scenario author
+  // touched either assumption, which is a worse result, not a more correct
+  // one. What the real-world identity DOES motivate, and what this model
+  // actually implements, is the Tier-2 THEME grouping below: realRate10y,
+  // be10y/be5y, realised inflation (cpiCore/cpiHeadline/pceCore/wageGrowth)
+  // and the policy/balance-sheet factors all sit in the "nominal" theme, so
+  // moving several of them together is discounted as corroborating one
+  // macro story rather than summed as three or four independent ones — see
+  // THEMES further down.
   { id: "realRate10y", label: "10y Real Rate", group: "inflation", unit: "%", base: 1.9, min: -2, max: 5, step: 0.05, norm: 0.25, dp: 2 },
 
   // ---- Growth & labour -----------------------------------------------------
@@ -192,7 +218,7 @@ export const VARIABLES: Variable[] = [
   { id: "energySupply", label: "Energy Supply Shock", group: "fiscal", unit: "%", base: 0, min: -20, max: 40, step: 1, norm: 5, dp: 0 },
   // The textbook structural/potential-growth variable: it sets trend GDP
   // rather than describing one quarter's cyclical activity, which is what
-  // separates it from every variable left in Growth & Labour above.
+  // separates it from every variable left in Growth & Labor above.
   { id: "productivity", label: "Productivity Growth", group: "fiscal", unit: "%", base: 1.5, min: -3, max: 6, step: 0.1, norm: 1.0, dp: 2 },
   // Public investment in education (primary through tertiary, all levels of
   // government), % of GDP. Base 5.0 sits near the OECD average of public
@@ -253,10 +279,15 @@ export const VARIABLES: Variable[] = [
   // (not a live quote, same disclaimer as every other base in this file): a
   // touch of front-end inversion (2Y above 5Y) easing into a normal upward
   // slope out to 30Y. The 10Y base (4.20%) is deliberately exactly
-  // realRate10y.base + be10y.base (1.90 + 2.30) — the same real-rate-plus-
-  // breakeven identity the Inflation & Expectations section's own comment
-  // documents — so the chart's resting curve agrees with that identity
-  // instead of asserting a second, independent number for the same yield.
+  // realRate10y.base + be10y.base (1.90 + 2.30) — a one-time calibration
+  // choice at this single resting point, so the chart's own starting curve
+  // reads as consistent with the real-world real-rate-plus-breakeven
+  // identity rather than asserting an unrelated second number for the same
+  // yield. It is a baseline coincidence, not an enforced constraint: once a
+  // scenario moves things, UST10Y is priced by its own RATE_BETAS
+  // regression (realRate10y.base's own comment above explains why that
+  // regression is deliberately NOT pinned to realRate10y + be10y under
+  // shock).
   //
   // `group: "curve"` keeps these four out of VarForm's six group cards (see
   // VAR_GROUPS above) — their only editor is the chart itself, not a numeric
@@ -344,12 +375,18 @@ export function collinearityShrink(varId: string, movedInFactor: number): number
   return 1 / (1 + rho * (movedInFactor - 1));
 }
 
-// A second tier, because the factors themselves are not independent either. The
-// 10y nominal yield is real rate plus breakeven by construction, and a scenario
-// that raises realised inflation, breakevens, the real rate AND the funds rate
-// has moved four factors but told one story. The identity is the clearest case:
-// setting the real rate and the breakeven already determines the nominal yield,
-// so the CPI series behind them must not be allowed to price it a third time.
+// A second tier, because the factors themselves are not independent either. In
+// the real market, nominal 10y yield = real 10y + 10y breakeven by definition,
+// and a scenario that raises realised inflation, breakevens, the real rate AND
+// the funds rate has moved four factors but told one story — even though this
+// model does NOT mechanically enforce that identity on its own UST10Y output
+// (see realRate10y's own comment in the variable list above for why, and for
+// the preset evidence that a hard pin would be worse). The real-world identity
+// is still the reason these particular factors belong in one theme rather than
+// standing apart: it is what makes "realised inflation ran hot, breakevens
+// repriced, the real rate moved, AND the Fed hiked" one coherent macro event
+// instead of four independent ones, so the CPI series behind it should not be
+// allowed to price that same event a third or fourth time at full weight.
 //
 // Correlation ACROSS factors is far weaker than within one, so the theme rho is
 // small. It is not zero, and at five moving factors the difference between rho 0

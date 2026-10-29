@@ -124,7 +124,7 @@ function ExecutionSummary({ orders }: { orders: ExecutionOrder[] }) {
             </tr>
           </thead>
           <tbody>
-            <tr>
+            <tr className="hover:bg-term-line/10">
               <Td align="right" mono className="text-term-text">
                 {orders.length}
               </Td>
@@ -235,7 +235,10 @@ function OrderBook({
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={r.key} className={`${r.isSummary ? "bg-term-raised" : i % 2 === 1 ? "bg-term-zebra" : ""}`}>
+                <tr
+                  key={r.key}
+                  className={`hover:bg-term-line/10 ${r.isSummary ? "bg-term-raised" : i % 2 === 1 ? "bg-term-zebra" : ""}`}
+                >
                   <Td mono className="text-term-muted">
                     {r.isSummary
                       ? ""

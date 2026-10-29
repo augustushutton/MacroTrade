@@ -362,7 +362,7 @@ function OrderRow({
   );
 
   return (
-    <tr className={`${zebra ? "bg-term-zebra" : ""} ${rowFlash}`}>
+    <tr className={`hover:bg-term-line/10 ${zebra ? "bg-term-zebra" : ""} ${rowFlash}`}>
       <Td className="text-term-sub">{a.label}</Td>
       <Td align="right" mono className={signColor(pricePct)}>
         {fmtPct(pricePct)}

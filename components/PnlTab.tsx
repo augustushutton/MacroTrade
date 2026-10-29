@@ -57,7 +57,7 @@ function FactorAttributionPanel({ r, selected }: { r: EngineResult; selected: st
           </thead>
           <tbody>
             {attrib.map((f) => (
-              <tr key={f.id} className="even:bg-term-zebra">
+              <tr key={f.id} className="hover:bg-term-line/10 even:bg-term-zebra">
                 <Td className="text-term-text">{f.label}</Td>
                 <Td
                   align="right"

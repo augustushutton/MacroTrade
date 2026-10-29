@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { MacroTradeLogo } from "./ui";
+import { LandingHeader, SectionBanner } from "./LandingChrome";
 
 // The public front page — "/" — separate from the scenario tool itself
 // (which lives under /builder, /pnl, /sensitivity, /derivation, /trading,
@@ -7,6 +6,17 @@ import { MacroTradeLogo } from "./ui";
 // the tool's own pages, this one has no scenario state, no interactivity at
 // all — six static preview images and some copy — so it needs no "use
 // client" and ships no extra client JS.
+//
+// This is now one of four front-page routes (Home / Variables / Assets / Metrics —
+// see components/LandingChrome.tsx) sharing the same header and folder-tab
+// strip, added on request ("We should expand the front page... implement a
+// page explaining what's behind each variable, asset... and explain what
+// each chart graph table or correlation or trading index actually works").
+// This file keeps exactly the content it had before that split (the
+// Windows-98-era header, six-tile screenshot column, red section banners) —
+// LandingChrome.tsx now owns the header/tagline/tab markup that used to live
+// inline here, and SectionBanner moved there too so Reference/Metrics can
+// reuse the identical divider instead of a second copy of it.
 //
 // This ports a page that existed only as a separate claude.ai-hosted
 // artifact (linked from TopNav's logo as a stand-in "homepage" before this
@@ -44,8 +54,24 @@ import { MacroTradeLogo } from "./ui";
 // direction/status, never decoration" rule (see tailwind.config.ts), kept
 // because it's part of the specific approved design this page ports rather
 // than an original choice made here.
-const TAGLINE = "MacroTrade: A macro modeling planner for traders and researchers";
-
+//
+// WHAT_IT_HAS/HOW_TO_USE/FAQ below carry a full rewrite the user supplied
+// (handed back as an edited copy of the Word doc exported from this same
+// content — see components/ReferenceGuide.tsx/MetricsGuide.tsx for the
+// matching rewrite of their own copy). On request ("check spelling, but
+// leave punctuations and formatting be from what they were prior"), this is
+// a spelling-only pass over that text: the user's own wording, phrasing, and
+// punctuation choices are kept exactly as given (including a consistent
+// switch from British to American spelling — Labour→Labor, modelled→modeled,
+// realised→realized — which is a deliberate, consistent choice throughout
+// their rewrite, not a typo, so it's kept rather than reverted); the only
+// two changes made are genuine word-level errors: "Let's you change" →
+// "Lets you change" (wrong word, not a contraction of "let us") in
+// MetricsGuide.tsx's Inflation Assumption entry, and "less-riskier" →
+// "less risky" (a redundant double comparative) in ReferenceGuide.tsx's HY
+// BB OAS entry. Everything else — including some looser grammar ("most
+// alike to the S&P 500", "This is for each allocation modeled and it
+// combines...") — is left exactly as supplied, per that instruction.
 const SHOTS: { label: string; src: string }[] = [
   { label: "Builder", src: "/preview-builder.png" },
   { label: "P&L", src: "/preview-pnl.png" },
@@ -60,20 +86,20 @@ const WHAT_IT_HAS: React.ReactNode[] = [
   <>
     You can set policy rates, inflation, growth, credit, and FX inputs manually. This platform has{" "}
     <b>46 input variables</b> in six primary categories: Monetary Policy, Inflation and Expectations, Growth and
-    Labour, Financial Conditions, FX and External, and Fiscal and Structural.
+    Labor, Financial Conditions, FX and External, and Fiscal and Structural.
   </>,
-  "Every input on this website is connected to the rest through the same mathematical relationships that macro variables have shown across decades.",
+  "Every input on this website is connected through relationships that macro variables have shown across decades.",
   "The delivery of the event and scenario can be immediate or phased over 3 months to 2 years. The structure of the scenario that you set is modeled specifically through five different paths: Immediate, Linear, S-Curve, Mean Reverting, or Staged.",
-  "This platform also has a set of built in scenarios covering growth, inflation, credit and liquidity, policy, and external shocks, so you can start your research from a pre-built applicable scenario instead of tweaking every detail.",
+  "This platform also has a set of built in scenarios covering growth, inflation, credit and liquidity, policy, and external shocks, so you can start planning from a pre-built scenario instead of tweaking every detail to match something akin to a real economic event.",
   "Scenarios can be saved, reset, and reloaded at any time.",
   "It is important to note that this is not a forecast. It shows what could realistically occur from a scenario you define but is not a complete prediction of what will happen.",
-  "Free to use. No account required.",
+  "MacroTrade is free to use and does not require any account or login.",
 ];
 
 const HOW_TO_USE: { term: string; rest: string }[] = [
   { term: "Builder.", rest: " Change every macro input directly, by category, and set the delivery timeline and the structure by what you think will happen." },
-  { term: "P&L.", rest: " See the scenario's effect on P&L and across your allocations and asset classes." },
-  { term: "Sensitivity.", rest: " See which inputs and variables drive the main scenario outcome. This is done through a two variable surface and a leave-one-out attribution table." },
+  { term: "P&L.", rest: " See the scenario's effect on P&L and across your allocations and specific asset classes." },
+  { term: "Sensitivity.", rest: " See which inputs and variables drive the main scenario outcome and compare them directly." },
   { term: "Derivation.", rest: " See the factors behind every currency, asset, commodity, and other variables and how each part affects its price movement." },
   { term: "Trading.", rest: " Price a trade against the current scenario before you are in it, and see how your trading style or trading ideas would affect your profit." },
   { term: "Execution.", rest: " Review every filled order in one place, with fill price, slippage, and commission tracked for each one in order to realistically adjust for brokerage trading." },
@@ -95,7 +121,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can I save a scenario?",
-    a: "Save your current scenario from the Builder page and load it again any time and set a custom name! But, the scenarios are only saved locally on your browser and device.",
+    a: "Save your current scenario from the Builder page and load it again any time and set a custom name! But the scenarios are only saved locally on your browser and device.",
   },
   {
     q: "Who is this built for?",
@@ -103,46 +129,10 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
-function SectionBanner({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-2.5 border border-down bg-down px-2.5 py-1.5 text-[12.5px] font-bold uppercase tracking-wide text-white">
-      {children}
-    </div>
-  );
-}
-
 export default function Landing() {
   return (
     <div className="min-w-[1280px] border border-term-edge bg-term-bg">
-      {/* ============ header ============ */}
-      {/* items-end + asymmetric padding (extra pt-, pb- unchanged from the
-          original py-4) instead of items-center + even py- — growing the
-          bar puts all the new room above the logo/title, so the bottom
-          edge (where this bar meets the tagline strip below) stays exactly
-          where it was and only the top edge of the gradient moves up.
-          Scaled up again on request ("a lot bigger") — pt-8/pb-4, a
-          40px logo and 32px wordmark, to pt-14/pb-7, a 56px logo and 44px
-          wordmark; the Launch Site button grew to match so it doesn't look
-          undersized next to the bigger wordmark beside it. */}
-      <header
-        className="flex items-end justify-between gap-4 px-5 pb-7 pt-14"
-        style={{ background: "linear-gradient(to right, rgb(var(--titlebar-blue-a)), rgb(var(--titlebar-blue-b)))" }}
-      >
-        <div className="flex items-center gap-4">
-          <MacroTradeLogo size={56} />
-          <div className="text-[44px] font-bold text-white">MacroTrade</div>
-        </div>
-        <Link
-          href="/builder"
-          className="border border-white bg-term-raised px-7 py-3.5 text-[15px] font-bold uppercase text-white transition-colors hover:bg-up"
-        >
-          Launch Site
-        </Link>
-      </header>
-
-      <div className="border-b border-term-edge bg-term-panel px-5 py-2.5">
-        <span className="text-[14px] font-bold text-white">{TAGLINE}</span>
-      </div>
+      <LandingHeader active="home" />
 
       {/* ============ body ============ */}
       <div className="grid grid-cols-[1fr_340px]">

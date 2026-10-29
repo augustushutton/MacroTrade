@@ -123,6 +123,31 @@ export function heatBg(v: number, max: number): string {
   return v >= 0 ? `rgb(var(--up) / ${a.toFixed(3)})` : `rgb(var(--down) / ${a.toFixed(3)})`;
 }
 
+/**
+ * Magnitude-scaled text colour with nothing filled in behind it — the
+ * "colour the number, not a highlight box around it" counterpart to
+ * heatBg/heatFg's badge treatment (on request, for Asset Risk Ranking:
+ * "not do highlights, just color the numbers"). Reuses the same
+ * --up-bright/--down-bright pair signColor reserves for text sitting
+ * directly on the ordinary panel background — heatBg's own --up/--down
+ * pair is deliberately the darker, duller half, calibrated to still read
+ * once a white/near-white foreground sits on TOP of a saturated fill
+ * (see heatFg above); with no fill to sit on, that pair looks washed out,
+ * so this scales the brighter pair's own opacity instead.
+ *
+ * Floored at 0.45 — the same "never let it vanish" reasoning as
+ * signFillBg's 0.18 floor, just pushed higher: a 2% fill can still be read
+ * as "present but small" by eye because its neighbours (the badge border,
+ * the row) carry contrast for it, but bare text at a low enough opacity on
+ * a bare panel background stops being legible as a number at all, not just
+ * a muted one. */
+export function heatText(v: number, max: number): string {
+  if (!Number.isFinite(v) || max <= 0) return "rgb(var(--term-sub))";
+  const a = Math.min(1, Math.max(0.45, Math.abs(v) / max));
+  const bright = v >= 0 ? "--up-bright" : "--down-bright";
+  return `rgb(var(${bright}) / ${a.toFixed(3)})`;
+}
+
 /** Text colour that stays legible once heatBg saturates. */
 export function heatFg(v: number, max: number): string {
   const base = "rgb(var(--term-text))";

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { SECOND_ROUND, DERIVED_COMMODITY, DERIVED_EQUITY, RATE_BETAS, SPREAD_BETAS, COMMODITY_BETAS, USDCAD_BETAS, EQUITY_CHANNELS, FX_PAIRS } from "@/lib/elasticities";
 import { ASSET_BY_ID, ASSETS } from "@/lib/assets";
 import { VAR_BY_ID, baselineState, collinearityShrink, crossTierShrink, themeShrink } from "@/lib/vars";
-import { saturateMultiplier } from "@/lib/regimes";
-import { cumulativeInflation, factorAttribution, horizonLadder, realReturn, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
+import { detectRegime, saturateMultiplier } from "@/lib/regimes";
+import { cumulativeInflation, factorAttribution, heatGrid, horizonLadder, realReturn, runScenario, sensitivity, type ScenarioInput } from "@/lib/engine";
 import { PATHS, responseKernel, responseWeight, responseWeightAt, samplePath } from "@/lib/paths";
 import { PORTFOLIOS, portfolioWeights } from "@/lib/portfolios";
 import { PRESETS, presetState } from "@/lib/scenarios";
@@ -299,6 +299,106 @@ describe("sensitivity", () => {
 
   it("returns nothing at baseline", () => {
     expect(sensitivity(base, "p6040")).toHaveLength(0);
+  });
+
+  // Regression for a real bug: a "without" leg used to let the regime
+  // re-detect from the modified state instead of staying pinned to the full
+  // scenario's own regime, so a bar for a variable that was ALSO one of the
+  // regime's own trigger conditions didn't measure that variable's isolated
+  // contribution — it measured that contribution PLUS every other
+  // still-present shock gaining/losing the old regime's amplification.
+  // "Demand Recession" (recession_pmi) is the sharpest real case: zeroing
+  // earningsGrowth alone flips the detected regime from recession back to
+  // financial_stress (earningsGrowth triggers none of financial_stress's
+  // own conditions, but recession's OTHER live triggers — the GDP and ISM
+  // prints — stop firing once nothing in THIS particular leave-one-out
+  // state crosses them, since the engine's trigger test always re-reads the
+  // full modified state, not just the zeroed field), which before the fix
+  // sign-flipped the bar entirely (+4.64pp shown vs -3.68pp true isolated).
+  it("keeps every bar's regime pinned to the full scenario's own regime, not a re-detected one — confirmed against Demand Recession, where the bug used to flip a bar's sign", () => {
+    const preset = PRESETS.find((p) => p.id === "recession_pmi")!;
+    const state = presetState(preset);
+    const input: ScenarioInput = { ...base, state, horizon: preset.horizon ?? base.horizon, path: preset.path ?? base.path };
+    const full = runScenario(input);
+    expect(full.regime.active).toBe("recession");
+
+    const bars = sensitivity(input, "p6040");
+    const earningsBar = bars.find((b) => b.varId === "earningsGrowth")!;
+
+    // Independent recomputation of the "true" isolated delta: rerun with
+    // earningsGrowth zeroed, regime explicitly pinned to the full
+    // scenario's own regime — sensitivity()'s own internals reused only for
+    // the thing under test (the regime it picks), not for this comparison
+    // value.
+    const withoutPinned = runScenario({
+      ...input,
+      state: { ...state, earningsGrowth: VAR_BY_ID.earningsGrowth.base },
+      regimeOverride: full.regime.active,
+    });
+    const fullPct = full.portfolios.find((p) => p.id === "p6040")!.pct;
+    const withoutPinnedPct = withoutPinned.portfolios.find((p) => p.id === "p6040")!.pct;
+    const trueIsolatedDelta = fullPct - withoutPinnedPct;
+
+    expect(earningsBar.delta).toBeCloseTo(trueIsolatedDelta, 9);
+    // Same sign as the true isolated contribution — this is the headline
+    // failure mode the bug produced (a sign flip), not just an imprecise
+    // magnitude.
+    expect(Math.sign(earningsBar.delta)).toBe(Math.sign(trueIsolatedDelta));
+  });
+});
+
+describe("heatGrid", () => {
+  // heatGrid used to let EACH cell auto-detect its own regime from that
+  // cell's own (x, y) state, the same comparing-shocks-under-different-
+  // multiplier-tables problem unitShockResponses's own comment already
+  // calls out and avoids (see lib/exposure.ts). A grid wide enough to
+  // cross one of REGIMES' own trigger thresholds (lib/regimes.ts —
+  // gdpGrowth <= 0, unemployment >= 5.2, ...) would then silently stitch
+  // cells priced under genuinely different multiplier tables into what
+  // reads as one smooth surface, which could show up as a cell moving the
+  // "wrong" way relative to its neighbours even though no individual
+  // coefficient's sign was ever wrong.
+  it("prices every cell under the SAME regime as the scenario's own centre state — an independent recomputation with that regime pinned explicitly, not heatGrid's own implementation reused", () => {
+    const input = { ...base, state: baselineState() };
+    const regime = detectRegime(input.state, input.regimeOverride ?? null).active;
+    // This range genuinely crosses the recession trigger on both axes
+    // (gdpGrowth <= 0 and unemployment >= 5.2 — lib/regimes.ts), so a
+    // per-cell auto-detecting implementation WOULD disagree with this
+    // pinned-regime recomputation somewhere in the grid (see the next
+    // test, which asserts exactly that disagreement against the naive
+    // approach).
+    const grid = heatGrid(input, "p6040", "gdpGrowth", "unemployment", 7);
+    for (const cell of grid.cells) {
+      const cellState = { ...input.state, gdpGrowth: cell.x, unemployment: cell.y };
+      const r = runScenario({ ...input, state: cellState, regimeOverride: regime });
+      const pct = r.portfolios.find((p) => p.id === "p6040")?.pct ?? 0;
+      expect(cell.pct).toBeCloseTo(pct, 6);
+    }
+  });
+
+  it("genuinely differs from the old per-cell-auto-detect approach somewhere in a grid that crosses a regime boundary — proving the fix changes real output, not just the implementation", () => {
+    const input = { ...base, state: baselineState() };
+    const grid = heatGrid(input, "p6040", "gdpGrowth", "unemployment", 7);
+    let anyDiffers = false;
+    for (const cell of grid.cells) {
+      const cellState = { ...input.state, gdpGrowth: cell.x, unemployment: cell.y };
+      const naive = runScenario({ ...input, state: cellState, regimeOverride: null });
+      const pct = naive.portfolios.find((p) => p.id === "p6040")?.pct ?? 0;
+      if (Math.abs(pct - cell.pct) > 1e-6) anyDiffers = true;
+    }
+    expect(anyDiffers).toBe(true);
+  });
+
+  it("the centre cell still equals the live scenario's own number exactly — pinning the grid's regime to the centre's own detected regime cannot move the centre cell itself", () => {
+    const input = { ...base, state: { ...baselineState(), gdpGrowth: -1.8, unemployment: 5.0 } };
+    const live = runScenario(input).portfolios.find((p) => p.id === "p6040")!.pct;
+    const grid = heatGrid(input, "p6040", "gdpGrowth", "unemployment", 7);
+    const xi = grid.xs.findIndex((x) => Math.abs(x - (input.state.gdpGrowth as number)) < 1e-6);
+    const yi = grid.ys.findIndex((y) => Math.abs(y - (input.state.unemployment as number)) < 1e-6);
+    expect(xi).toBeGreaterThanOrEqual(0);
+    expect(yi).toBeGreaterThanOrEqual(0);
+    const centre = grid.cells[yi * grid.xs.length + xi];
+    expect(centre.pct).toBeCloseTo(live, 9);
   });
 });
 
@@ -599,6 +699,43 @@ describe("factor attribution", () => {
     expect(attrib[0]?.label).toBe("Direct assumptions");
     expect(Math.abs(attrib[0]!.contribPct) / total).toBeGreaterThan(0.5);
   });
+
+  it("keeps a pinned credit-spread leg's share proportional to its raw bp size, not toLog-distorted", () => {
+    // Reproduces the credit_crisis shape: a deep Treasury rally (HY_BCCC's
+    // "rate" leg lands at a large negative bp) alongside a directly-pinned
+    // OAS widening (its "spread" leg, a large positive bp via hyBCCCSpread).
+    // Both legs are basis points of yield/spread combined by ONE
+    // priceFromYield(duration, sum) call, so each leg's SHARE of the
+    // asset's log return must equal its raw-bp share of the two legs' sum —
+    // the same share you'd get scaling both by the asset's own
+    // -duration/100 (it cancels in a ratio). Running the pinned leg through
+    // toLog instead (treating +1130bp of OAS as if it were a +1130% PRICE
+    // return) breaks that: live on this exact input, it sent HY_BCCC's
+    // spread share to -185x and inflated "Direct assumptions" to +38.7pp of
+    // pure artifact on a scenario whose actual portfolio move was -21.1pp.
+    const r = runScenario({
+      ...base,
+      state: { ...base.state, hyBCCCSpread: 16.5, fedFunds: 2.75, forwardGuidance: -1.75, realRate10y: 0.6 },
+    });
+    const asset = r.assets.HY_BCCC;
+    const spreadCh = asset.channels.find((c) => c.channel === "spread")!;
+    const rateCh = asset.channels.find((c) => c.channel === "rate")!;
+    expect(spreadCh.pinned).toBe(true);
+    const expectedSpreadShare = spreadCh.value / (spreadCh.value + rateCh.value);
+
+    const port = r.portfolios.find((p) => p.id === "p6040")!;
+    const line = port.lines.find((l) => l.asset === "HY_BCCC")!;
+    const w = line.w / 100;
+    const expectedSpreadContrib = asset.pricePct * expectedSpreadShare * w;
+
+    const attrib = factorAttribution(r, "p6040");
+    const assumption = attrib.find((f) => f.label === "Direct assumptions")?.contribPct ?? 0;
+    expect(assumption).toBeCloseTo(expectedSpreadContrib, 5);
+    // The bug this guards against let one leg's share run to -185x; a
+    // correctly-scaled leg cannot swing the portfolio's attribution past a
+    // small multiple of that one asset's own weighted total return.
+    expect(Math.abs(assumption)).toBeLessThanOrEqual(Math.abs(asset.pricePct * w) * 5 + 1e-9);
+  });
 });
 
 describe("cumulativeInflation", () => {
@@ -648,7 +785,7 @@ describe("horizonLadder", () => {
   it("every rung's realPct matches realReturn on that rung's own nominal pct and horizon", () => {
     const st = { ...base.state, fedFunds: 5.5, cpiHeadline: 5.0 };
     const ladder = horizonLadder({ ...base, state: st }, "p6040");
-    expect(ladder).toHaveLength(6);
+    expect(ladder).toHaveLength(12);
     for (const rung of ladder) {
       expect(rung.cpiUsed).toBe(5.0);
       expect(rung.realPct).toBeCloseTo(realReturn(rung.pct, 5.0, rung.horizon), 9);

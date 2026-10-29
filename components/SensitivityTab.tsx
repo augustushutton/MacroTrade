@@ -32,6 +32,35 @@ import { ScrollHint } from "./ScrollHint";
  * without it the glyph sits slightly toward the button's top edge (normal
  * inline-text baseline positioning, not true centering), which reads as
  * off-centre once you zoom in on a 20px-tall button.
+ *
+ * This Panel used to carry `flex-1` itself, splitting the sidebar column's
+ * full height 50/50 with Timeline Returns above it. Timeline Returns grew
+ * from 6 rows to 12 (request: "expand the timeline returns section to
+ * include years 5 6 7 8 9 and 10" — see LADDER_HORIZONS in lib/paths.ts),
+ * which needs most of that column's height to stay readable, so on request
+ * ("shrink the inflation assumption box accordingly") `flex-1` was dropped
+ * here: Timeline Returns' own `flex-1` is now the sidebar's sole claimant
+ * on leftover height, and this Panel instead sizes to its actual minimum
+ * content — the stepper row plus now-tighter padding (`py-1`→`py-0.5`,
+ * `gap-1`→`gap-0.5` below) — rather than being stretched taller than that
+ * content needs.
+ *
+ * Once the box was sized to its content, `justify-center` stopped actually
+ * centring the STEPPER (on request: "lower the inflation assumption button
+ * just a bit vertically so it is vertically centered in its box... not
+ * including the header, just the black area below it"). The box's content
+ * is really three stacked rows — stepper, then the Reset row reserved
+ * below it (see that row's own comment) — and justify-center only centres
+ * that whole three-row block as a group; since the reserved Reset row only
+ * exists BELOW the stepper, the block's centre sits below the stepper's
+ * own centre, which is exactly the "button sits too high" the request
+ * described. `resetGlyph` below is rendered twice — once as the real,
+ * sometimes-invisible Reset button below the stepper, and once as an
+ * always-invisible mirror ABOVE it. That makes the box symmetric around
+ * the stepper (spacer, gap, stepper, gap, Reset — identical height above
+ * and below), so centring the whole block now genuinely centres the
+ * stepper too, by construction, not by a hand-tuned margin that would
+ * drift the next time this box's padding or the Reset row's size changes.
  */
 function InflationAssumption({
   scenarioCpi,
@@ -54,23 +83,40 @@ function InflationAssumption({
     setOverride(clamp(Math.round((value + sign * amt) * 100) / 100));
   }
 
+  // Shared markup for both the real Reset button below the stepper and its
+  // always-invisible mirror above it (see this component's header comment)
+  // — defining it once guarantees the two stay pixel-identical in height,
+  // which is the whole point of mirroring them.
+  const resetGlyph = (
+    <>
+      <span aria-hidden className="mr-0.5">
+        &#8634;
+      </span>
+      Reset
+    </>
+  );
+
   return (
-    <Panel title="Inflation Assumption" className="flex flex-1 flex-col">
-      {/* flex-1 + justify-center on both the Panel section (className
-          above) and this content div — on request, again ("horizontally
-          and vertically center the inflation assumption button"): the
-          first pass centred it horizontally (items-center) but left it
-          pinned to the top of whatever height this panel ends up with,
-          which only reads as "centred" when the panel happens to be
-          exactly as tall as its content. flex-1 lets the panel claim
-          (its share of) any leftover column height instead of staying
-          pinned to its own content size, and justify-center means
-          whatever height that turns out to be, the stepper sits in the
-          true middle of it instead of flush against the header.
-          `relative`, because the Reset button below is now taken out of
-          this flex flow (see its own comment) — this is what its
-          `absolute` positioning anchors against. */}
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-1 px-2 py-1">
+    <Panel title="Inflation Assumption" className="flex flex-col">
+      {/* justify-center on this content div — originally on request
+          ("horizontally and vertically center the inflation assumption
+          button"), then on request again once the mirrored spacer below
+          made the block genuinely symmetric around the stepper ("lower
+          the inflation assumption button just a bit vertically so it is
+          vertically centered in its box"). Padding/gap tightened
+          (`py-1`→`py-0.5`, `gap-1`→`gap-0.5`) to shrink the box's own
+          minimum size, on request ("shrink the inflation assumption box
+          accordingly") when Timeline Returns grew to 12 rows (see this
+          component's header comment). */}
+      <div className="flex flex-col items-center justify-center gap-0.5 px-2 py-0.5">
+        {/* Always-invisible mirror of the real Reset row below — see this
+            component's header comment for why this is what makes
+            justify-center actually land the stepper on the box's true
+            centre instead of above it. Never interactive (no onClick, no
+            tabIndex, aria-hidden) — purely a height-matched spacer. */}
+        <span aria-hidden className="invisible select-none text-th">
+          {resetGlyph}
+        </span>
         <div className="flex items-stretch gap-dense">
           <button
             type="button"
@@ -105,31 +151,20 @@ function InflationAssumption({
           <Cap className="flex shrink-0 items-center">%</Cap>
         </div>
         {/* Always rendered, not conditionally, so the panel's height stays
-            fixed across both states (toggling the override used to grow
-            the panel by one line and visibly shrink the Horizon Ladder
-            above it to compensate) — but `absolute` now, not a normal
-            flow sibling of the stepper row. It used to sit below the
-            stepper as a second flex-column child, which meant
-            `justify-center` on the content div above centred the PAIR of
-            them as a group — pulling the visible stepper up off true
-            centre to leave this line's reserved height (invisible or not)
-            below it. Taking it out of flow with `absolute` means it still
-            reserves nothing and pushes nothing: the panel's size is
-            unaffected either way (same as before), but the stepper is now
-            the sole flex child `justify-center` is centring, so it lands
-            on the panel's actual vertical centre instead of just the
-            centre of "stepper + reserved reset line". */}
+            fixed across both states (toggling the override shouldn't
+            visibly resize the box) — a plain flow sibling of the stepper
+            row, in normal flow rather than `absolute`, so its reserved
+            height is real box height the mirrored spacer above can
+            actually match. `invisible` (not `hidden`) hides it without
+            collapsing its height when not overridden. */}
         <button
           type="button"
           onClick={() => setOverride(null)}
           tabIndex={isOverridden ? 0 : -1}
           aria-hidden={!isOverridden}
-          className={`absolute bottom-1 left-1/2 -translate-x-1/2 text-th text-term-muted hover:text-down ${isOverridden ? "" : "invisible pointer-events-none"}`}
+          className={`text-th text-term-muted hover:text-down ${isOverridden ? "" : "invisible pointer-events-none"}`}
         >
-          <span aria-hidden className="mr-0.5">
-            &#8634;
-          </span>
-          Reset
+          {resetGlyph}
         </button>
       </div>
     </Panel>
@@ -175,8 +210,16 @@ export default function SensitivityTab({
   const safeYVar = yVar && VAR_BY_ID[yVar] ? yVar : "";
   const x = safeXVar || moved[0]?.id || "fedFunds";
   const y = safeYVar || moved[1]?.id || (x === "cpiCore" ? "gdpGrowth" : "cpiCore");
+  // Grid size bumped from 7 to 11 on request ("stretch out the sensitivity
+  // table") — more rows/columns to actually fill the width, not just wider
+  // whitespace around the same 7x7 grid. heatGrid() is an odd-sized,
+  // centred window by construction (see its own comment in lib/engine.ts),
+  // so 11 costs nothing structurally, just 121 instead of 49 runScenario
+  // calls — runScenario itself is cheap synchronous arithmetic (same cost
+  // Monte Carlo already pays hundreds of times over), and this is memoized
+  // on [input, portfolioId, x, y] exactly as before.
   const grid = React.useMemo(
-    () => heatGrid(input, portfolioId, x, y, 7),
+    () => heatGrid(input, portfolioId, x, y, 11),
     [input, portfolioId, x, y],
   );
   // Which cell gets the "this is your current scenario" outline below.
@@ -246,7 +289,7 @@ export default function SensitivityTab({
                   something scannable as a column of colour, the way a
                   one-column heatmap reads at a glance. */}
               {bars.map((b) => (
-                <tr key={b.varId} className="even:bg-term-zebra">
+                <tr key={b.varId} className="hover:bg-term-line/10 even:bg-term-zebra">
                   <Td className="text-term-text">{b.label}</Td>
                   <Td
                     align="right"
@@ -325,7 +368,16 @@ export default function SensitivityTab({
             </thead>
             <tbody>
               {grid.ys.map((yv, yi) => (
-                <tr key={yi}>
+                // hover:brightness-110, not hover:bg-term-line/10 — every
+                // cell in this row (including the leading Y-axis label cell)
+                // already carries its own saturated heatBg/heatFg fill via
+                // inline style, so a background-color hover class would sit
+                // fully behind that fill and never actually show. A
+                // brightness filter composites over whatever's already
+                // there instead of competing with it for the same paint
+                // layer, so the row still visibly lifts on hover regardless
+                // of how dark or light any individual cell's heat fill is.
+                <tr key={yi} className="hover:brightness-110">
                   <Td align="right" mono className="bg-term-raised text-term-muted">
                     {yv.toFixed(VAR_BY_ID[y].dp)}
                   </Td>
@@ -371,10 +423,18 @@ export default function SensitivityTab({
           <Panel title="Timeline Returns" className="flex flex-1 flex-col">
             {/* Plain flex rows, not a <table> — a real <tr>/<td> can't be
                 told to grow (display:table-row ignores flex-grow), and that
-                growth is the whole point here: four rows evenly filling
-                whatever height Two-Variable Surface's taller content leaves
-                this column, instead of leaving dead panel background below
-                the last row. */}
+                growth is the whole point here: twelve rows (3M through 10Y —
+                extended from six on request, "expand the timeline returns
+                section to include years 5 6 7 8 9 and 10"; see
+                LADDER_HORIZONS in lib/paths.ts) evenly filling whatever
+                height Two-Variable Surface's taller content leaves this
+                column, instead of leaving dead panel background below the
+                last row. This Panel is now also the sidebar's sole
+                flex-1 claimant (Inflation Assumption below gave its own
+                flex-1 up — see that component's header comment), so a
+                taller ladder here genuinely gets more real column height
+                to spread across, not just more rows packed into the same
+                height as before. */}
             <div className="flex items-center justify-between border-b border-term-edge bg-term-raised px-2 py-dense text-th font-medium uppercase leading-[13px] text-term-muted">
               <span>Horizon</span>
               <span>Return (%)</span>
@@ -383,7 +443,7 @@ export default function SensitivityTab({
               {ladder.map((l, i) => (
                 <div
                   key={l.horizon}
-                  className={`flex flex-1 items-center justify-between px-2 leading-[14px] ${i % 2 === 1 ? "bg-term-zebra" : ""}`}
+                  className={`flex flex-1 items-center justify-between px-2 leading-[14px] hover:bg-term-line/10 ${i % 2 === 1 ? "bg-term-zebra" : ""}`}
                 >
                   <span className="text-[11px] text-term-sub">{HORIZON_LABEL[l.horizon]}</span>
                   <span className={`font-mono text-[11px] tnum font-medium ${signColor(l.pct)}`}>
@@ -452,7 +512,7 @@ export default function SensitivityTab({
                 const realPct = realReturn(l.pct, assumedCpi, l.horizon);
                 const drag = realPct - l.pct;
                 return (
-                  <tr key={l.horizon} className="even:bg-term-zebra">
+                  <tr key={l.horizon} className="hover:bg-term-line/10 even:bg-term-zebra">
                     <Td className="text-term-sub">{HORIZON_LABEL[l.horizon]}</Td>
                     <Td align="right" mono className={`font-medium ${signColor(l.pct)}`}>
                       {fmtPct(l.pct)}

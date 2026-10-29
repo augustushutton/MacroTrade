@@ -375,9 +375,39 @@
            same category as the smoothing this already removed.
        Firefox has no equivalent override for the first property (only
        grayscale/subpixel via -moz-osx-font-smoothing, no "none"), so it
-       keeps its OS default there and still gets the text-rendering change. */
+       keeps its OS default there and still gets the text-rendering change.
+
+       Pushed one step further still (on request, after a round of "make it
+       look older/pixelated" hypothetical screenshots — those were a
+       post-process of the rendered screenshot itself, a nearest-neighbour
+       downscale/upscale, which only exists for a static image and can't run
+       against live, interactive, constantly-updating DOM text without
+       rasterising the whole page into a flat picture — breaking text
+       selection, in-page search, and the app's live data updates. Audited
+       first for anything overriding `-webkit-font-smoothing`/
+       `text-rendering` elsewhere (app/layout.tsx deliberately drops
+       Tailwind's `antialiased` utility already — see that file's own
+       comment — and nothing else in app/ or components/ sets either
+       property), so the next real lever is tightening what `text-rendering:
+       optimizeSpeed` only loosely implies: `font-kerning`/
+       `font-variant-ligatures`/`font-feature-settings` are the actual
+       properties that turn off inter-glyph kerning and ligature
+       substitution — optimizeSpeed is a hint a renderer "may" act on, these
+       are the explicit switches, set directly so every browser drops them
+       the same way rather than only the ones that honour the hint. Net
+       effect: slightly uneven letter spacing and no substituted ligatures
+       (e.g. "fi"/"fl" as two separate glyphs) on top of the existing
+       no-antialiasing — a small push toward "a GDI renderer just placed
+       each glyph it had, nothing fancier," not a new kind of effect. */
     -webkit-font-smoothing: none;
     text-rendering: optimizeSpeed;
+    font-kerning: none;
+    font-variant-ligatures: none;
+    font-feature-settings:
+      "kern" 0,
+      "liga" 0,
+      "clig" 0,
+      "calt" 0;
     /* Firefox */
     scrollbar-color: rgb(var(--term-line)) rgb(var(--term-bg));
     /* Explicit, on request ("a way to see the full area when the browser

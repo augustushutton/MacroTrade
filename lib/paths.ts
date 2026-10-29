@@ -17,14 +17,19 @@ import type { Channel } from "./regimes";
 // honest answer and is not reproducible by multiplying two scalars.
 
 export type PathShape = "immediate" | "linear" | "scurve" | "meanRevert" | "staged";
-// 36/48 (3Y/4Y) exist only for the Sensitivity page's Horizon Ladder term
-// structure (see LADDER_HORIZONS below) — the global Delivery horizon
-// selector (HORIZONS, read by Controls.tsx's HorizonSelector) deliberately
-// stays at the original four so this doesn't also grow that control. Both
-// live on the same type since every Horizon-typed function here (TAU/LAMBDA-
-// driven response kernels) is already a continuous function of months with
-// no restriction to any particular set of them.
-export type Horizon = 3 | 6 | 12 | 24 | 36 | 48;
+// 36/48 (3Y/4Y) and 60-120 (5Y-10Y) exist only for the Sensitivity page's
+// Horizon Ladder term structure (see LADDER_HORIZONS below) — the global
+// Delivery horizon selector (HORIZONS, read by Controls.tsx's
+// HorizonSelector) deliberately stays at the original four so this doesn't
+// also grow that control. Both live on the same type since every
+// Horizon-typed function here (TAU/LAMBDA-driven response kernels) is
+// already a continuous function of months with no restriction to any
+// particular set of them — extending the ladder out to 120 months (on
+// request, "expand the timeline returns section to include years 5 6 7 8 9
+// and 10") costs nothing structurally: responseWeight/responseKernel
+// (below) take `horizon` as a plain number of months, so 60-120 are priced
+// by the exact same continuous formula as 3-48, not a new code path.
+export type Horizon = 3 | 6 | 12 | 24 | 36 | 48 | 60 | 72 | 84 | 96 | 108 | 120;
 
 export interface PathDef {
   id: PathShape;
@@ -81,11 +86,29 @@ export const PATH_BY_ID: Record<PathShape, PathDef> = Object.fromEntries(
 
 export const HORIZONS: Horizon[] = [3, 6, 12, 24];
 /** The Horizon Ladder's own, longer term structure — see horizonLadder in
- *  lib/engine.ts, the only reader. Extends HORIZONS with two more years
- *  rather than lengthening HORIZONS itself, which stays reserved for the
- *  global Delivery selector. */
-export const LADDER_HORIZONS: Horizon[] = [3, 6, 12, 24, 36, 48];
-export const HORIZON_LABEL: Record<Horizon, string> = { 3: "3M", 6: "6M", 12: "1Y", 24: "2Y", 36: "3Y", 48: "4Y" };
+ *  lib/engine.ts, the only reader. Extends HORIZONS with eight more years
+ *  (3Y through 10Y) rather than lengthening HORIZONS itself, which stays
+ *  reserved for the global Delivery selector. Runs to 120 months (10Y) on
+ *  request ("expand the timeline returns section to include years 5 6 7 8 9
+ *  and 10") — every rung after 48 is priced by the same
+ *  responseWeight/responseKernel formula as every rung before it (see the
+ *  Horizon type's own comment above), so there is no new math to get wrong
+ *  here, only six more evaluations of math that already existed. */
+export const LADDER_HORIZONS: Horizon[] = [3, 6, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+export const HORIZON_LABEL: Record<Horizon, string> = {
+  3: "3M",
+  6: "6M",
+  12: "1Y",
+  24: "2Y",
+  36: "3Y",
+  48: "4Y",
+  60: "5Y",
+  72: "6Y",
+  84: "7Y",
+  96: "8Y",
+  108: "9Y",
+  120: "10Y",
+};
 export const STEP_CHOICES = [4, 6, 8, 12] as const;
 
 /**

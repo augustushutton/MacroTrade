@@ -129,12 +129,27 @@ export default function SavedScenarios() {
                   <button
                     type="button"
                     onClick={() => handleLoad(s)}
+                    // Zebra striping is nested inside the non-selected branch, not a
+                    // sibling condition ORed alongside it: bg-term-zebra and bg-term-text
+                    // used to be applied as two independent classes (zebra on odd rows,
+                    // selected-highlight on isSel), and whenever both landed on the same
+                    // row — i.e. an odd-indexed row happened to be the loaded scenario —
+                    // they fought over the same background-color property. Tailwind's
+                    // compiled order let bg-term-zebra win, leaving the row's near-black
+                    // zebra background under text-term-panel (also near-black in dark
+                    // mode), so the selected row's name rendered invisible while its
+                    // amber box-shadow border (set via inline style below, unaffected by
+                    // the class conflict) still showed — a thin gold outline around a
+                    // blank row. The selected state is the stronger signal (same "this is
+                    // the one in effect" treatment as a selected portfolio or pinned
+                    // asset elsewhere in the app), so it should simply suppress zebra
+                    // striping on that row rather than race it for the same property.
                     className={`group flex w-full min-w-0 items-center justify-between gap-1.5 px-2 py-dense text-left text-[11px] ${
-                      i % 2 === 1 ? "bg-term-zebra" : ""
-                    } ${
                       isSel
                         ? "bg-term-text font-medium text-term-panel"
-                        : "text-term-sub hover:bg-term-line/10 hover:text-term-text"
+                        : `${
+                            i % 2 === 1 ? "bg-term-zebra " : ""
+                          }text-term-sub hover:bg-term-line/10 hover:text-term-text`
                     }`}
                     // Same amber spotlight as the selected portfolio's return
                     // and a pinned asset's headline % — "this is the one in

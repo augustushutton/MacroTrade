@@ -782,6 +782,32 @@ function buildPortfolio(p: Portfolio, assets: Record<string, AssetResult>, notio
 // is measured in the regime the full scenario actually produced. A shock that
 // only bites because the scenario has already tipped into financial stress shows
 // its true weight one way and almost none the other.
+//
+// That "the regime the full scenario actually produced" promise used to be
+// broken in practice: the "without" leg below called runScenario with the
+// SAME input it was given, which for every real caller in this app means
+// regimeOverride: null (lib/scenario-context.tsx hardcodes it — there is no
+// UI control that ever sets it otherwise), so each leave-one-out rerun
+// silently let the regime RE-DETECT from the modified state instead of
+// staying pinned to the full scenario's own regime. Confirmed on this app's
+// own built-in presets, not a contrived case: on "Demand Recession",
+// zeroing earningsGrowth alone flips the detected regime from `recession`
+// back to `financial_stress` (its own triggers are unrelated to earnings),
+// and the resulting bar read +4.64pp when earningsGrowth's true isolated
+// contribution is -3.68pp — a SIGN FLIP, not just an imprecise number,
+// because most of what the bar actually measured was every OTHER
+// still-present shock losing/gaining the old regime's amplification, not
+// earningsGrowth's own channel. "Credit Shortage"'s igSpread bar showed the
+// same failure mode (-6.14 shown vs +0.67 true). This is exactly the
+// "comparing shocks priced under two different multiplier tables" problem
+// heatGrid (above) was already built and tested to avoid — sensitivity's
+// leave-one-out reruns were simply never brought in line with that same
+// rule. Fixed the same way heatGrid fixes it: pin every "without" rerun to
+// the FULL scenario's own detected regime, via regimeOverride. Always safe
+// to set unconditionally (not just when input.regimeOverride was null): if
+// a caller ever does pass an explicit override, detectRegime already
+// returns that same id as `full.regime.active`, so pinning to it is a
+// no-op in that case and the fix in the common (null) case.
 // ---------------------------------------------------------------------------
 export interface SensitivityBar {
   varId: string;
@@ -800,7 +826,7 @@ export function sensitivity(input: ScenarioInput, portfolioId: string): Sensitiv
     const move = rawMove(input.state, id);
     if (Math.abs(move) < 1e-9) continue;
     const without = { ...input.state, [id]: v.base };
-    const r = runScenario({ ...input, state: without });
+    const r = runScenario({ ...input, state: without, regimeOverride: full.regime.active });
     const pct = r.portfolios.find((x) => x.id === portfolioId)?.pct ?? 0;
     bars.push({ varId: id, label: v.label, delta: base - pct, rawMove: move, unit: v.unit });
   }
@@ -840,7 +866,26 @@ function niceStep(roughStep: number): number {
 /** Two-variable surface over the portfolio return. Grid is odd-sized so the
  *  current setting sits exactly on the centre cell rather than between two —
  *  true for every case except a variable already sitting exactly on its own
- *  min/max, where no centred window is mathematically possible at all. */
+ *  min/max, where no centred window is mathematically possible at all.
+ *
+ *  Every cell is priced under the SAME regime — the one detected for the
+ *  scenario's own centre state — rather than letting each cell auto-detect
+ *  its own. Without this, a grid that sweeps gdpGrowth/unemployment far
+ *  enough to cross REGIMES' own trigger thresholds (lib/regimes.ts) prices
+ *  neighbouring cells under different multiplier tables (recession's
+ *  earnings channel runs at 1.8x, its multiple channel at 0.75x; soft
+ *  landing runs both at 1x), which shows up as a cell landing noticeably
+ *  off the trend its neighbours set, or even moving the "wrong" way versus
+ *  the cell next to it — not because any one coefficient has a broken
+ *  sign, but because the surface was quietly stitched together from two
+ *  different pricing models. This is exactly the comparing-shocks-under-
+ *  different-multiplier-tables problem unitShockResponses's own comment
+ *  above already calls out and avoids by pinning one regime — heatGrid was
+ *  the one caller of runScenario across multiple points that hadn't been
+ *  brought in line with that same rule. Pinning here does not change what
+ *  any single cell means (it is still that exact (x, y) state, genuinely
+ *  repriced) — it only stops the grid from silently switching pricing
+ *  models between cells that are supposed to be directly comparable. */
 export function heatGrid(
   input: ScenarioInput,
   portfolioId: string,
@@ -848,6 +893,7 @@ export function heatGrid(
   yVar: string,
   n = 7,
 ): HeatGrid {
+  const regime = detectRegime(input.state, input.regimeOverride ?? null).active;
   const vx = VAR_BY_ID[xVar];
   const vy = VAR_BY_ID[yVar];
   const size = n % 2 === 0 ? n + 1 : n;
@@ -905,7 +951,7 @@ export function heatGrid(
   for (const y of ys) {
     for (const x of xs) {
       const st = { ...input.state, [xVar]: x, [yVar]: y };
-      const r = runScenario({ ...input, state: st });
+      const r = runScenario({ ...input, state: st, regimeOverride: regime });
       const pct = r.portfolios.find((p) => p.id === portfolioId)?.pct ?? 0;
       cells.push({ x, y, pct });
       if (pct < min) min = pct;
@@ -1031,7 +1077,36 @@ export function factorAttribution(r: EngineResult, portfolioId: string): FactorC
     const w = line.w / 100;
     if (Math.abs(w) < 1e-9) continue;
 
-    const channelLogVals = asset.channels.map((c) => (c.pinned ? toLog(c.value) : c.value));
+    // A pinned channel's `value` is in the SAME unit its own channel type
+    // always uses, pinned or not — toLog is only the right conversion for a
+    // "price"/"multiple" channel, where the UNPINNED aggregation (priceOf,
+    // above) is itself in percent-return log units, so a pinned percent
+    // return (an FX assumption, a forward P/E override) has to go through
+    // the same toLog to land in that basis.
+    //
+    // "rate" and "spread" channels are never in that basis: both the pinned
+    // and unpinned case are basis points of yield/OAS, combined by a single
+    // priceFromYield(duration, sum of channels in bp) applied once per
+    // asset, so every channel on one asset shares the same -duration/100
+    // scale factor. Running toLog over a bp number instead (treating, say,
+    // a +165bp pinned OAS as if it were a +165% pinned PRICE return) was
+    // confirmed live on credit_crisis: HY_BCCC's rate leg (-252bp) and
+    // wrongly-toLog'd spread leg (+251bp) nearly cancel to a near-zero
+    // denominator, sending chShareOfAsset to -185x and inflating "Direct
+    // assumptions" to +38.7pp of pure artifact, offset by an equally
+    // fictitious -32.9pp mis-booked to "Rates" — while the PORTFOLIO total
+    // stayed correct throughout (shares always sum to 1 by construction),
+    // masking the fact that the BREAKDOWN between categories was nonsense.
+    // Leaving a bp-denominated channel as its raw value (exactly like the
+    // unpinned case already does) keeps every channel on one asset in a
+    // consistent basis, so the share is correct regardless of the common
+    // -duration/100 factor's sign or size — see tests/engine.test.ts for the
+    // regression that pins this down numerically.
+    const channelLogVals = asset.channels.map((c) => {
+      if (!c.pinned) return c.value;
+      if (c.channel === "rate" || c.channel === "spread") return c.value;
+      return toLog(c.value);
+    });
     const totalLog = channelLogVals.reduce((s, v) => s + v, 0);
     if (Math.abs(totalLog) < 1e-9) continue;
 

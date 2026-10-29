@@ -144,10 +144,22 @@ export const PRESETS: Preset[] = [
   // (a supply shock is a growth story here — termsOfTrade/gdpGrowth both move
   // — as much as it is an external one).
   {
+    // Renamed from "Demand-Pull Recession" — "demand-pull" is a term of
+    // art for an INFLATIONARY mechanism (aggregate demand outrunning
+    // supply and pulling prices up), not a contraction. Everything this
+    // preset actually sets — falling growth, falling CPI (cpiHeadline
+    // 1.6, cpiCore 2.2, both below baseline), the Fed cutting (fedFunds
+    // down, forwardGuidance negative) — describes the opposite: a
+    // demand-DEFICIENT downturn, where weak orders/output disinflate the
+    // economy rather than overheat it. "Demand Recession" names that
+    // correctly and still sits as the orders/output-led counterpart to
+    // "Labor Recession" below (consumer/labor-market-led) without
+    // borrowing a word that means the opposite thing. id/gist/variable
+    // set are unchanged — this was a labeling error, not a modeling one.
     id: "recession_pmi",
-    label: "Demand-Pull Recession",
+    label: "Demand Recession",
     group: "Growth",
-    gist: "Orders and output roll first; labour follows late",
+    gist: "Orders and output roll first; labor follows late",
     set: {
       gdpGrowth: -1.8,
       pmiMfg: 42,
@@ -171,7 +183,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "recession_labour",
-    label: "Labour Recession",
+    label: "Labor Recession",
     group: "Growth",
     gist: "Unemployment gaps higher; the consumer stops",
     set: {
@@ -228,6 +240,16 @@ export const PRESETS: Preset[] = [
       hyBBSpread: 7.20,
       hyBCCCSpread: 16.50,
       gdpGrowth: -1.0,
+      // pmiMfg/pmiSvcs added on audit: a -3.0pp GDP print (gdpGrowth's own
+      // delta from baseline) with both ISM surveys left at an expansionary
+      // baseline (49.5/53.0) was internally inconsistent — GDP and the ISM
+      // surveys move together, and every other preset in this library that
+      // sets a comparable or smaller GDP hit (recession_pmi, -3.8pp;
+      // stagflation, -1.7pp) also pulls PMI into/near contraction. Set a
+      // notch milder than recession_pmi's own 42/46, matching this
+      // preset's somewhat smaller GDP delta.
+      pmiMfg: 44,
+      pmiSvcs: 47,
       unemployment: 5.1,
       earningsRevisions: -30,
       fedFunds: 3.0,
@@ -258,7 +280,14 @@ export const PRESETS: Preset[] = [
     label: "Volatility Spike",
     group: "Credit & Liquidity",
     gist: "Positioning unwind; risk premium repricing with clean fundamentals",
-    set: { vix: 38, hyBCCCSpread: 8.80, igSpread: 1.40, usdjpy: 141 },
+    // hyBBSpread added on audit: IG widened +45bp and B/CCC +360bp with the
+    // BB tier in between left untouched — a skipped rung in an otherwise
+    // monotonic credit-quality curve. A risk-premium repricing widens every
+    // tier, scaling by quality; +180bp sits where BB belongs between IG and
+    // CCC's own moves here, the same tiering every other credit-touching
+    // preset in this library keeps (e.g. stagflation: IG +50bp, BB +120bp;
+    // credit_crisis: IG +165bp, BB +500bp, CCC +1130bp).
+    set: { vix: 38, hyBBSpread: 4.00, hyBCCCSpread: 8.80, igSpread: 1.40, usdjpy: 141 },
     path: "meanRevert",
     horizon: 6,
   },
@@ -301,7 +330,18 @@ export const PRESETS: Preset[] = [
       cpiHeadline: 3.6,
       cpiCore: 3.2,
       be5y: 2.7,
-      termsOfTrade: 4,
+      // termsOfTrade sign flipped on audit, from +4 to -2. This preset's
+      // own energySupply (+6, tighter supply, pricier commodities) carries
+      // the SAME sign as oil_spike's energySupply: 28, and oil_spike pairs
+      // that with termsOfTrade: -6 (pricier commodities WORSEN US terms of
+      // trade under this model's importer framing) — a convention
+      // commodity_bear's own pairing confirms the other way (energySupply:
+      // -14, cheaper commodities, with termsOfTrade: +5). +4 here had
+      // rising commodity prices IMPROVING terms of trade, the opposite sign
+      // of both sibling presets for the identical mechanism. -2 keeps the
+      // sign consistent while staying proportionate to this preset's own
+      // smaller energySupply move.
+      termsOfTrade: -2,
       energySupply: 6,
     },
     path: "scurve",
@@ -333,7 +373,21 @@ export const PRESETS: Preset[] = [
     label: "Curve Inversion",
     group: "Curve",
     gist: "Front end held high while the long end prices the slowdown",
-    set: { fedFunds: 5.0, forwardGuidance: 1.25, gdpGrowth: 0.6, pmiMfg: 46, be10y: 2.1, realRate10y: 1.7, cpiCore: 2.6 },
+    // unemployment: 4.5 added on audit (sub-trend growth — gdpGrowth to
+    // 0.6% and ISM Mfg to 46 — left the labour market completely untouched,
+    // an Okun's-law gap this preset's own sibling bull_steepen (a milder
+    // growth slip, gdpGrowth to 0.4%) does NOT have, since it already bumps
+    // unemployment to 5.2. +0.3pp here is the smaller, leading-indicator-
+    // scaled move: this preset is an early curve-inversion warning sign,
+    // not a realised downturn, so it gets a softer labour readthrough than
+    // bull_steepen's larger one, not none at all. cpiHeadline is
+    // deliberately left untouched, matching bull_steepen/bear_steepen in
+    // the same Curve group — this family is a core-inflation/policy-rate
+    // story, not an energy/headline one, and the engine has no commodity-
+    // price-to-headline-CPI feedback for a preset to lean on regardless
+    // (cpiHeadline is its own free-standing assumption, not derived from
+    // WTI/Brent, which are themselves scenario OUTPUTS here, not inputs).
+    set: { fedFunds: 5.0, forwardGuidance: 1.25, gdpGrowth: 0.6, pmiMfg: 46, unemployment: 4.5, be10y: 2.1, realRate10y: 1.7, cpiCore: 2.6 },
     path: "linear",
     horizon: 12,
   },
@@ -351,7 +405,14 @@ export const PRESETS: Preset[] = [
     label: "Bear Steepening",
     group: "Curve",
     gist: "Term premium rebuilds on supply, not on growth",
-    set: { deficitGdp: 9.0, debtGdp: 136, qtPace: 100, be10y: 2.85, realRate10y: 2.6, fedFunds: 4.0, currentAccount: -4.4 },
+    // fedFunds removed on audit: it was set to exactly 4.0, fedFunds' own
+    // baseline, a no-op left over from an earlier edit (rawMove is 0, so it
+    // changed nothing in either the engine's output or VarForm's own
+    // "changed" styling — see movedCount in components/VarForm.tsx). The
+    // Fed on hold while the long end sells off on supply is still exactly
+    // this preset's story; that's already what NOT setting fedFunds means,
+    // the same convention every other preset in this library uses.
+    set: { deficitGdp: 9.0, debtGdp: 136, qtPace: 100, be10y: 2.85, realRate10y: 2.6, currentAccount: -4.4 },
     path: "linear",
     horizon: 24,
   },
